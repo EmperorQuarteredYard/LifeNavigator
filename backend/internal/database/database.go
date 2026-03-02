@@ -1,4 +1,4 @@
-package config
+package database
 
 import (
 	"LifeNavigator/backend/internal/models"
@@ -16,11 +16,11 @@ var (
 )
 
 type databaseConfig struct {
-	USERNAME string
-	PASSWORD string
-	DATABASE string
-	PORT     string
-	HOST     string
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Database string `json:"database"`
+	Port     string `json:"port"`
+	Host     string `json:"host"`
 }
 
 func getConfig() (*databaseConfig, error) {
@@ -50,20 +50,15 @@ func GetDatabase() *gorm.DB {
 			fmt.Println("config is nil")
 			return nil
 		}
-		dsn := config.USERNAME + ":" + config.PASSWORD + "@tcp(" + config.HOST + ":" + config.PORT + ")/" + config.DATABASE + "?charset=utf8mb4&parseTime=True&loc=Local"
+		dsn := config.Username + ":" + config.Password + "@tcp(" + config.Host + ":" + config.Port + ")/" + config.Database + "?charset=utf8mb4&parseTime=True&loc=Local"
 
 		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("fail to connect to database\nreason:", err)
 			return nil
 		}
 
-		if err != nil {
-			fmt.Println("fail to connect to database\nreason:", err)
-			return nil
-		} else {
-			fmt.Println("successfully connect to database")
-		}
+		fmt.Println("successfully connect to database")
 
 		err = db.AutoMigrate(&models.User{}, &models.Arrangement{}, &models.Project{})
 

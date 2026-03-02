@@ -3,9 +3,10 @@ package repository
 import "errors"
 
 var (
-	ErrInsufficientPermissions = errors.New("权限不足")
-	ErrDepartmentNotMatch      = errors.New("部门不匹配")
-	ErrNotFound                = errors.New("记录不存在")
-	ErrDuplicateEntry          = errors.New("记录已存在")
-	ErrSubmitLate              = errors.New("提交过晚")
+	ErrNotFound       = errors.New("record not found")
+	ErrDuplicate      = errors.New("duplicate key violation")
+	ErrInvalidInput   = errors.New("invalid input")
+	ErrUserNameExists = errors.New("username already exists")
+	ErrInviteCodeUsed = errors.New("invite code already used")
+	ErrUnexpected     = errors.New("unexpected error in repository")
 )

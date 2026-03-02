@@ -7,16 +7,16 @@ import (
 )
 
 type User struct {
-	ID        uint64         `Gorm:"primary_key;auto_increment"`
-	CreatedAt time.Time      `Gorm:"auto_now_add" json:"created_at"`
-	UpdatedAt time.Time      `Gorm:"auto_now" json:"updated_at"`
-	DeletedAt gorm.DeletedAt `Gorm:"index" json:"deleted_at"`
+	ID        uint64         `gorm:"primary_key;auto_increment"`
+	CreatedAt time.Time      `gorm:"auto_now_add" json:"created_at"`
+	UpdatedAt time.Time      `gorm:"auto_now" json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
 
 	Username string `json:"username"`
-	Password string `json:"password"`
+	Password string `json:"-"`
 	Nickname string `json:"nickname"`
 	Role     string `json:"role"`
-	Version  uint64 `json:"version" Gorm:"default:0"`
+	Version  uint64 `json:"version" gorm:"default:0"`
 	Email    string `json:"email"`
 	Phone    string `json:"phone"`
 }

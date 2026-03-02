@@ -1,16 +1,37 @@
-package refreshTime
+package models
 
 import "time"
+
+const (
+	TypeRefreshNever   = 0
+	TypeRefreshYearly  = 1
+	TypeRefreshMonthly = 2
+	TypeRefreshWeekly  = 3
+	TypeRefreshDaily   = 4
+	TypeRefreshHourly  = 5
+)
 
 var timeZone *time.Location = time.FixedZone("CST", 8*3600) //默认采用东八区时间
 
 func SetTimeZone(timeZ int) {
 	timeZ %= 24
+	if timeZ < 0 {
+		timeZ += 24
+	}
 	timeZone = time.FixedZone("CST", timeZ)
+}
+func CreateRefreshInterval(refreshGap, strategy int) uint32 {
+	return uint32(refreshGap<<8 + strategy&0xFF)
+}
+
+func AnalysisRefreshInterval(refreshInterval uint32) (refreshGap int, strategy int) {
+	return int(refreshInterval >> 8), int(refreshInterval & 0xFF)
 }
 
 // ShouldRefresh 认为一天的开始是UTC+8时间4:00，一周的开始为周一
-func ShouldRefresh(strategy string, refreshGap uint8, lastRefreshTime time.Time) bool {
+func ShouldRefresh(RefreshInterval uint32, lastRefreshTime time.Time) bool {
+	strategy := RefreshInterval & 0xFF
+	refreshGap := RefreshInterval >> 8
 	now := time.Now().In(timeZone)
 	last := lastRefreshTime.In(timeZone)
 	adjustToDayBoundary := func(t time.Time) time.Time {
@@ -18,17 +39,17 @@ func ShouldRefresh(strategy string, refreshGap uint8, lastRefreshTime time.Time)
 	}
 
 	switch strategy {
-	case NeverCount:
+	case TypeRefreshNever:
 		return false
 
-	case CountDay:
+	case TypeRefreshDaily:
 		lastAdj := adjustToDayBoundary(last)
 		nowAdj := adjustToDayBoundary(now)
 		// 计算相差的整天数
 		daysDiff := int((nowAdj.Unix() - lastAdj.Unix()) / 86400)
 		return daysDiff >= int(refreshGap)
 
-	case CountWeek:
+	case TypeRefreshWeekly:
 		lastAdj := adjustToDayBoundary(last)
 		nowAdj := adjustToDayBoundary(now)
 
@@ -43,7 +64,7 @@ func ShouldRefresh(strategy string, refreshGap uint8, lastRefreshTime time.Time)
 		weeksDiff := int((nowMonday.Unix() - lastMonday.Unix()) / (7 * 86400))
 		return weeksDiff >= int(refreshGap)
 
-	case CountMonth:
+	case TypeRefreshMonthly:
 		lastAdj := adjustToDayBoundary(last)
 		nowAdj := adjustToDayBoundary(now)
 
@@ -56,7 +77,7 @@ func ShouldRefresh(strategy string, refreshGap uint8, lastRefreshTime time.Time)
 		}
 		return monthDiff >= int(refreshGap)
 
-	case CountYear:
+	case TypeRefreshYearly:
 		lastAdj := adjustToDayBoundary(last)
 		nowAdj := adjustToDayBoundary(now)
 
@@ -68,6 +89,11 @@ func ShouldRefresh(strategy string, refreshGap uint8, lastRefreshTime time.Time)
 			yearDiff--
 		}
 		return yearDiff >= int(refreshGap)
+	case TypeRefreshHourly:
+		lastAdj := adjustToDayBoundary(last)
+		nowAdj := adjustToDayBoundary(now)
+		hourDiff := (nowAdj.Unix() - lastAdj.Unix()) / 3600
+		return hourDiff >= int64(refreshGap)
 
 	default:
 		// 未知策略默认不刷新

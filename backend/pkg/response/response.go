@@ -21,16 +21,6 @@ func Success(c *gin.Context, data interface{}) {
 	})
 }
 
-func Error(c *gin.Context, err error) {
-	// 根据错误类型获取对应的错误码和信息
-	code, msg := errcode.FromError(err)
-	c.JSON(http.StatusOK, Response{
-		Code:    code,
-		Message: msg,
-		Data:    nil,
-	})
-}
-
 func Code(c *gin.Context, code int) {
 	c.JSON(http.StatusOK, Response{
 		Code:    code,

@@ -1,6 +1,8 @@
 package jwt
 
 import (
+	"LifeNavigator/backend/pkg/errcode"
+	"LifeNavigator/backend/pkg/response"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -27,17 +29,15 @@ var (
 )
 
 type CustomClaims struct {
-	UserID     uint64 `json:"user_id"`
-	Role       string `json:"role"`
-	Department string `json:"department"`
-	Type       string `json:"type"` // "access"/"refresh"
+	UserID uint64 `json:"user_id"`
+	Role   string `json:"role"`
+	Type   string `json:"type"` // "access"/"refresh"
 	jwt.RegisteredClaims
 }
 
 type AuthUser struct {
-	UserID     uint64 `json:"user_id"`
-	Role       string `json:"role"`
-	Department string `json:"department"`
+	UserID uint64 `json:"user_id"`
+	Role   string `json:"role"`
 	//Nickname   string `json:"nickname"` 不加了要改好多石山
 }
 
@@ -68,17 +68,16 @@ func getConfig() (err error) {
 	return err
 }
 
-func GenerateRefreshToken(userID uint64, department, role string) (token string, err error) {
+func GenerateRefreshToken(userID uint64, role string) (token string, err error) {
 	err = getConfig()
 	if err != nil {
 		return "", err
 	}
 	now := time.Now()
 	refreshClaims := CustomClaims{
-		UserID:     userID,
-		Department: department,
-		Role:       role,
-		Type:       "refresh",
+		UserID: userID,
+		Role:   role,
+		Type:   "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    config.Issuer,
 			Subject:   fmt.Sprintf("%d", userID),
@@ -96,17 +95,16 @@ func GenerateRefreshToken(userID uint64, department, role string) (token string,
 	return token, nil
 }
 
-func GenerateAccessToken(userID uint64, department, role string) (token string, err error) {
+func GenerateAccessToken(userID uint64, role string) (token string, err error) {
 	err = getConfig()
 	if err != nil {
 		return "", err
 	}
 	now := time.Now()
 	accessClaims := CustomClaims{
-		UserID:     userID,
-		Department: department,
-		Role:       role,
-		Type:       "access",
+		UserID: userID,
+		Role:   role,
+		Type:   "access",
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    config.Issuer,
 			Subject:   fmt.Sprintf("%d", userID),
@@ -124,13 +122,13 @@ func GenerateAccessToken(userID uint64, department, role string) (token string, 
 	return token, nil
 }
 
-func GenerateToken(userID uint64, department, role string) (accessToken string, refreshToken string, err error) {
-	refreshToken, err = GenerateRefreshToken(userID, department, role)
+func GenerateToken(userID uint64, role string) (accessToken string, refreshToken string, err error) {
+	refreshToken, err = GenerateRefreshToken(userID, role)
 	if err != nil {
 		return "", "", err
 	}
 
-	accessToken, err = GenerateAccessToken(userID, department, role)
+	accessToken, err = GenerateAccessToken(userID, role)
 	if err != nil {
 		return "", "", err
 	}
@@ -206,7 +204,7 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 		if authHeader == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"message": "Authorization header required",
-				"code":    StatusMissedToken,
+				"code":    errcode.StatusMissedToken,
 				"data":    nil,
 			})
 			return
@@ -216,16 +214,15 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"message": "Invalid token",
-				"code":    StatusInvalidToken,
+				"code":    errcode.StatusInvalidToken,
 				"data":    nil})
 			return
 		}
 
 		// 将用户信息存入上下文
 		c.Set("user", &AuthUser{
-			UserID:     claims.UserID,
-			Role:       claims.Role,
-			Department: claims.Department,
+			UserID: claims.UserID,
+			Role:   claims.Role,
 		})
 		c.Next()
 	}
@@ -236,21 +233,13 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userInterface, exists := c.Get("user")
 		if !exists {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":    StatusUserNotAuthenticated,
-				"message": "User not authenticated",
-				"data":    nil,
-			})
+			response.Code(c, errcode.StatusUnauthorized)
 			return
 		}
 
 		user, ok := userInterface.(*AuthUser)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":    StatusInvalidUserData,
-				"message": "Invalid user data",
-				"data":    nil,
-			})
+			response.Code(c, errcode.StatusInvalidUserData)
 			return
 		}
 
@@ -264,11 +253,7 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 		}
 
 		if !roleAllowed {
-			c.JSON(http.StatusForbidden, gin.H{
-				"message": "Insufficient permissions",
-				"code":    StatusInsufficientPermissions,
-				"data":    nil,
-			})
+			response.Code(c, errcode.StatusInsufficientPermissions)
 			c.Abort()
 			return
 		}
