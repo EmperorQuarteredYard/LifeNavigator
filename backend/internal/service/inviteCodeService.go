@@ -4,57 +4,38 @@ import (
 	"LifeNavigator/backend/internal/models"
 	"LifeNavigator/backend/internal/repository"
 	"errors"
+	"log"
+	"strconv"
 
 	"github.com/google/uuid"
 )
 
-// InviteCodeService 定义了邀请码相关的业务逻辑操作。
 type InviteCodeService interface {
-	// GenerateInviteCode 生成一个新的邀请码。
-	// 参数：
-	//   - amount: 邀请码可被使用的次数上限。
-	//   - createdBy: 创建者ID（如用户ID）。
-	// 返回：
-	//   - *models.InviteCode: 生成的邀请码对象，包含 token、amount 等字段。
-	//   - error: 如果生成失败（如数据库错误），返回相应错误。
-	GenerateInviteCode(amount int, invitedBy string) (*models.InviteCode, error)
+	//GenerateInviteCode 生成邀请码：需要传入当前用户ID，创建者标记为当前用户
+	GenerateInviteCode(amount int, currentUserID uint64) (*models.InviteCode, error)
 
-	// UseCode 使用指定的邀请码令牌。
-	// 该操作是原子的，会检查邀请码是否可用并增加使用次数。
-	// 返回的错误包括：
-	//   - ErrInviteCodeNotFound: 令牌不存在。
-	//   - ErrInviteCodeUsed: 邀请码已用完（使用次数已达上限）。
-	//   - 其他数据库错误。
+	//UseCode 使用邀请码：无需权限，任何人只要持有 token 即可使用
 	UseCode(token string) error
 
-	// GetCodeInfo 获取邀请码的详细信息。
-	// 如果令牌不存在，返回 ErrInviteCodeNotFound。
-	GetCodeInfo(token string) (*models.InviteCode, error)
+	//GetCodeInfo 获取邀请码详情：只有创建者或管理员可查看（这里简化：仅创建者可查看）
+	GetCodeInfo(token string, currentUserID uint64) (*models.InviteCode, error)
 
-	// ListCodesByUser 分页查询指定用户创建的邀请码。
-	// 参数：
-	//   - userID: 创建者ID。
-	//   - offset: 偏移量，用于分页。
-	//   - limit: 每页数量。
-	// 返回邀请码列表和可能的错误。
-	ListCodesByUser(userID uint64, offset, limit int) ([]models.InviteCode, error)
+	//ListCodesByUser 列出当前用户创建的邀请码
+	ListCodesByUser(currentUserID uint64, offset, limit int) ([]models.InviteCode, error)
 }
 
-// inviteCodeService 是 InviteCodeService 接口的实现，封装了邀请码的业务逻辑。
 type inviteCodeService struct {
-	repo repository.InviteCodeRepository // 依赖仓储层接口
+	repo repository.InviteCodeRepository
 }
 
-// NewInviteCodeService 创建一个新的 InviteCodeService 实例。
 func NewInviteCodeService(repo repository.InviteCodeRepository) InviteCodeService {
 	return &inviteCodeService{repo: repo}
 }
 
-// GenerateInviteCode 实现 InviteCodeService.GenerateInviteCode。
-// 它生成一个唯一的 token（使用 UUID），并调用仓储层保存。
-func (s *inviteCodeService) GenerateInviteCode(amount int, invitedBy string) (*models.InviteCode, error) {
-	// 生成 token
+func (s *inviteCodeService) GenerateInviteCode(amount int, currentUserID uint64) (*models.InviteCode, error) {
 	token := uuid.New().String()
+	// 将用户ID转换为字符串作为创建者标识（示例格式，可按需调整）
+	invitedBy := strconv.FormatUint(currentUserID, 10)
 	code := &models.InviteCode{
 		Token:     token,
 		Amount:    amount,
@@ -62,38 +43,44 @@ func (s *inviteCodeService) GenerateInviteCode(amount int, invitedBy string) (*m
 		InvitedBy: invitedBy,
 	}
 	if err := s.repo.Create(code); err != nil {
-		return nil, err
+		log.Printf("failed to create invite code: %v", err)
+		return nil, ErrInternal
 	}
 	return code, nil
 }
 
-// UseCode 实现 InviteCodeService.UseCode。
-// 它直接调用仓储层的乐观锁方法 UseCodeByToken，并转换错误（如果需要）。
 func (s *inviteCodeService) UseCode(token string) error {
 	err := s.repo.UseCodeByToken(token)
 	if errors.Is(err, repository.ErrNotFound) {
 		return ErrInviteCodeNotFound
 	}
 	if errors.Is(err, repository.ErrInviteCodeUsed) {
-		return err
+		return ErrErrInviteCodeUsed // 直接返回 repository 层的错误（也可包装）
 	}
-	return err
+	if err != nil {
+		log.Printf("failed to use invite code %s: %v", token, err)
+		return ErrInternal
+	}
+	return nil
 }
 
-// GetCodeInfo 实现 InviteCodeService.GetCodeInfo。
-func (s *inviteCodeService) GetCodeInfo(token string) (*models.InviteCode, error) {
+func (s *inviteCodeService) GetCodeInfo(token string, currentUserID uint64) (*models.InviteCode, error) {
 	code, err := s.repo.FindByToken(token)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrInviteCodeNotFound
 		}
-
+		log.Printf("failed to find invite code %s: %v", token, err)
 		return nil, ErrInternal
+	}
+	// 校验：只有创建者才能查看详情
+	if code.InvitedBy != strconv.FormatUint(currentUserID, 10) {
+		return nil, ErrForbidden
 	}
 	return code, nil
 }
 
-// ListCodesByUser 实现 InviteCodeService.ListCodesByUser。
-func (s *inviteCodeService) ListCodesByUser(userID uint64, offset, limit int) ([]models.InviteCode, error) {
-	return s.repo.GetByUserID(userID, offset, limit)
+func (s *inviteCodeService) ListCodesByUser(currentUserID uint64, offset, limit int) ([]models.InviteCode, error) {
+	// 直接使用用户ID查询（repo 的 ListByUserID 接收 uint64）
+	return s.repo.GetByUserID(currentUserID, offset, limit)
 }

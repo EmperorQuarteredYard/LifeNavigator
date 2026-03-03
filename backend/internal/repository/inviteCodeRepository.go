@@ -56,7 +56,6 @@ func (r *inviteCodeRepository) GetByUserID(userID uint64, offset, limit int) ([]
 }
 
 func (r *inviteCodeRepository) Create(code *models.InviteCode) error {
-	code.ID = 0
 	err := r.db.Create(code).Error
 	if err != nil {
 		return err

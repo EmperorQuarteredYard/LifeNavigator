@@ -2,6 +2,7 @@ package controller
 
 import (
 	"LifeNavigator/backend/internal/service"
+	"LifeNavigator/backend/pkg/dto"
 	"LifeNavigator/backend/pkg/errcode"
 	"errors"
 	"strconv"
@@ -40,13 +41,13 @@ func (ctl *InviteController) CreateInviteCode(c *gin.Context) {
 		return
 	}
 
-	var req CreateInviteCodeRequest
+	var req dto.CreateInviteCodeRequest
 	if !ctl.BindJSON(c, &req) {
 		return
 	}
 
 	// 获取完整用户信息（需要 Username）
-	user, err := ctl.userService.FindById(authUser.UserID)
+	user, err := ctl.userService.FindByID(authUser.UserID, authUser.UserID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserNotFound):
@@ -75,9 +76,16 @@ func (ctl *InviteController) GetInviteCode(c *gin.Context) {
 		return
 	}
 
-	code, err := ctl.inviteCodeService.GetCodeInfo(token)
+	authUser, ok := ctl.GetAuthUser(c)
+	if !ok {
+		return
+	}
+
+	code, err := ctl.inviteCodeService.GetCodeInfo(token, authUser.UserID)
 	if err != nil {
 		switch {
+		case errors.Is(err, service.ErrForbidden):
+			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
 		case errors.Is(err, service.ErrInviteCodeNotFound):
 			ctl.HandleCode(c, errcode.StatusInviteCodeNotFound)
 		default:

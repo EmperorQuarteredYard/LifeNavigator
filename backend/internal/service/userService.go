@@ -11,14 +11,22 @@ import (
 )
 
 type UserService interface {
-	Register(user *models.User) (err error)
-	Login(userName, password string) (user *models.User, err error)
-	FindById(id uint64) (user *models.User, err error)
-	GetByUsername(username string) (*models.User, error)
-	GetByEmail(email string) (*models.User, error)
-	HardDeleteById(id uint64) (err error)
-	SoftDeleteById(id uint64) (err error)
-	RefreshToken(refreshToken string) (accessToken string, newRefreshToken string, err error)
+	// 注册无需权限
+	Register(user *models.User) error
+	// 登录无需权限
+	Login(username, password string) (*models.User, error)
+	// 查询用户信息：只有自己或管理员可查（这里简化：仅自己可查）
+	FindByID(id uint64, currentUserID uint64) (*models.User, error)
+	GetByUsername(username string, currentUserID uint64) (*models.User, error) // 若允许用户查看他人用户名信息则另当别论，这里仅允许查看自己
+	GetByEmail(email string, currentUserID uint64) (*models.User, error)
+	// 更新用户信息：只有自己可更新
+	Update(user *models.User, currentUserID uint64) error
+	// 硬删除：仅自己可执行（或管理员，这里简化）
+	HardDeleteByID(id uint64, currentUserID uint64) error
+	// 软删除：仅自己可执行
+	SoftDeleteByID(id uint64, currentUserID uint64) error
+	// 刷新令牌无需用户ID
+	RefreshToken(refreshToken string) (accessToken, newRefreshToken string, err error)
 }
 
 type userService struct {
@@ -26,94 +34,51 @@ type userService struct {
 }
 
 func NewUserService(userRepo repository.UserRepository) UserService {
-	return &userService{
-		userRepo: userRepo,
-	}
-}
-func (s *userService) RefreshToken(refreshToken string) (accessToken string, newRefreshToken string, err error) {
-	// 验证 refresh token
-	claims, err := jwt.VerifyRefreshToken(refreshToken)
-	if err != nil {
-		return "", "", ErrInvalidToken
-	}
-
-	// 检查用户是否存在（防止用户已被删除）
-	user, err := s.userRepo.GetByID(claims.UserID)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return "", "", ErrUserNotFound
-		}
-		return "", "", ErrInternal
-	}
-
-	accessToken, newRefreshToken, err = jwt.GenerateToken(user.ID, user.Role)
-	if err != nil {
-		return "", "", ErrInternal
-	}
-	return accessToken, newRefreshToken, nil
+	return &userService{userRepo: userRepo}
 }
 
-func (s *userService) SoftDeleteById(id uint64) (err error) {
-	err = s.userRepo.SoftDeleteById(id)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return ErrUserNotFound
-		}
-	}
-	return
-}
-
-func (s *userService) HardDeleteById(id uint64) (err error) {
-	err = s.userRepo.HardDeleteById(id)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return ErrUserNotFound
-		}
-		log.Printf("failed to hard delete user : %v", err)
-		return ErrInternal
-	}
-	return
-}
-
-func (s *userService) Register(user *models.User) (err error) {
+func (s *userService) Register(user *models.User) error {
 	if user.Password == "" || user.Username == "" {
 		return ErrUserInfoNotFound
 	}
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	hashed, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		log.Printf("failed to hash password: %v", err)
+		return ErrInternal
 	}
-	user.Password = string(hashedPassword)
+	user.Password = string(hashed)
 	user.Role = "user"
-	err = s.userRepo.Create(user)
-	if err != nil {
+	if err := s.userRepo.Create(user); err != nil {
 		if errors.Is(err, repository.ErrUserNameExists) {
 			return ErrUserNameExists
 		}
-		log.Printf("failed to register user : %v", err)
+		log.Printf("failed to create user: %v", err)
 		return ErrInternal
 	}
 	return nil
 }
 
-func (s *userService) Login(userName, password string) (user *models.User, err error) {
-	user, err = s.userRepo.GetByUsername(userName)
+func (s *userService) Login(username, password string) (*models.User, error) {
+	user, err := s.userRepo.GetByUsername(username)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrUserNotFound
 		}
-		log.Printf("failed to login user  %s: %v", userName, err)
+		log.Printf("failed to get user by username: %v", err)
 		return nil, ErrInternal
 	}
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-	if err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		return nil, ErrPasswordWrong
 	}
 	return user, nil
 }
 
-func (s *userService) FindById(id uint64) (user *models.User, err error) {
-	user, err = s.userRepo.GetByID(id)
+func (s *userService) FindByID(id uint64, currentUserID uint64) (*models.User, error) {
+	// 只允许用户查询自己
+	if id != currentUserID {
+		return nil, ErrForbidden
+	}
+	user, err := s.userRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrUserNotFound
@@ -124,25 +89,99 @@ func (s *userService) FindById(id uint64) (user *models.User, err error) {
 	return user, nil
 }
 
-func (s *userService) GetByUsername(username string) (user *models.User, err error) {
-	user, err = s.userRepo.GetByUsername(username)
+func (s *userService) GetByUsername(username string, currentUserID uint64) (*models.User, error) {
+	// 假设只允许用户查询自己的用户名信息，但用户名是登录标识，通常允许公开？这里保守只允许查自己
+	// 更合理：先查出用户，再比对 ID
+	user, err := s.userRepo.GetByUsername(username)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrUserNotFound
 		}
-		log.Printf("failed to get user by username %s: %v", username, err)
+		log.Printf("failed to get user by username: %v", err)
 		return nil, ErrInternal
+	}
+	if user.ID != currentUserID {
+		return nil, ErrForbidden
 	}
 	return user, nil
 }
-func (s *userService) GetByEmail(email string) (user *models.User, err error) {
-	user, err = s.userRepo.GetByEmail(email)
+
+func (s *userService) GetByEmail(email string, currentUserID uint64) (*models.User, error) {
+	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrUserNotFound
 		}
-		log.Printf("failed to get user by email %s: %v", email, err)
+		log.Printf("failed to get user by email: %v", err)
 		return nil, ErrInternal
 	}
+	if user.ID != currentUserID {
+		return nil, ErrForbidden
+	}
 	return user, nil
+}
+
+func (s *userService) Update(user *models.User, currentUserID uint64) error {
+	// 只能更新自己的信息
+	if user.ID != currentUserID {
+		return ErrForbidden
+	}
+	// 可选：不允许修改某些字段，如密码需单独处理，这里简化
+	if err := s.userRepo.Update(user); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrUserNotFound
+		}
+		log.Printf("failed to update user %d: %v", user.ID, err)
+		return ErrInternal
+	}
+	return nil
+}
+
+func (s *userService) HardDeleteByID(id uint64, currentUserID uint64) error {
+	if id != currentUserID {
+		return ErrForbidden
+	}
+	if err := s.userRepo.HardDeleteById(id); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrUserNotFound
+		}
+		log.Printf("failed to hard delete user %d: %v", id, err)
+		return ErrInternal
+	}
+	return nil
+}
+
+func (s *userService) SoftDeleteByID(id uint64, currentUserID uint64) error {
+	if id != currentUserID {
+		return ErrForbidden
+	}
+	if err := s.userRepo.SoftDeleteById(id); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrUserNotFound
+		}
+		log.Printf("failed to soft delete user %d: %v", id, err)
+		return ErrInternal
+	}
+	return nil
+}
+
+func (s *userService) RefreshToken(refreshToken string) (string, string, error) {
+	claims, err := jwt.VerifyRefreshToken(refreshToken)
+	if err != nil {
+		return "", "", ErrInvalidToken
+	}
+	user, err := s.userRepo.GetByID(claims.UserID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return "", "", ErrUserNotFound
+		}
+		log.Printf("failed to get user for refresh: %v", err)
+		return "", "", ErrInternal
+	}
+	accessToken, newRefreshToken, err := jwt.GenerateToken(user.ID, user.Role)
+	if err != nil {
+		log.Printf("failed to generate token: %v", err)
+		return "", "", ErrInternal
+	}
+	return accessToken, newRefreshToken, nil
 }

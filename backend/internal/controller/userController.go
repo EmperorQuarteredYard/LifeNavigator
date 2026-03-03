@@ -4,6 +4,7 @@ import (
 	"LifeNavigator/backend/internal/models"
 	"LifeNavigator/backend/internal/repository"
 	"LifeNavigator/backend/internal/service"
+	"LifeNavigator/backend/pkg/dto"
 	"LifeNavigator/backend/pkg/errcode"
 	"LifeNavigator/backend/pkg/jwt"
 	"errors"
@@ -27,7 +28,7 @@ func NewUserController(userService service.UserService, inviteService service.In
 
 // Register 用户注册（需提供有效邀请码）
 func (ctl *UserController) Register(c *gin.Context) {
-	var req RegisterRequest
+	var req dto.RegisterRequest
 	if !ctl.BindJSON(c, &req) {
 		return
 	}
@@ -62,7 +63,7 @@ func (ctl *UserController) Register(c *gin.Context) {
 
 // Login 用户登录
 func (ctl *UserController) Login(c *gin.Context) {
-	var req LoginRequest
+	var req dto.LoginRequest
 	if !ctl.BindJSON(c, &req) {
 		return
 	}
@@ -86,10 +87,10 @@ func (ctl *UserController) Login(c *gin.Context) {
 		return
 	}
 
-	ctl.Success(c, LoginResponse{
+	ctl.Success(c, dto.LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		User: UserProfile{
+		User: dto.UserProfile{
 			Username:  user.Username,
 			Nickname:  user.Nickname,
 			Email:     user.Email,
@@ -119,7 +120,7 @@ func (ctl *UserController) GetUser(c *gin.Context) {
 		return
 	}
 
-	ctl.Success(c, UserProfile{
+	ctl.Success(c, dto.UserProfile{
 		Username:  user.Username,
 		Nickname:  user.Nickname,
 		Email:     user.Email,
@@ -146,7 +147,7 @@ func (ctl *UserController) Profile(c *gin.Context) {
 		return
 	}
 
-	ctl.Success(c, UserProfile{
+	ctl.Success(c, dto.UserProfile{
 		Username:  user.Username,
 		Nickname:  user.Nickname,
 		Email:     user.Email,
@@ -157,7 +158,7 @@ func (ctl *UserController) Profile(c *gin.Context) {
 
 // Refresh 刷新访问令牌
 func (ctl *UserController) Refresh(c *gin.Context) {
-	var req RefreshRequest
+	var req dto.RefreshRequest
 	if !ctl.BindJSON(c, &req) {
 		return
 	}
@@ -175,7 +176,7 @@ func (ctl *UserController) Refresh(c *gin.Context) {
 		return
 	}
 
-	ctl.Success(c, RefreshResponse{
+	ctl.Success(c, dto.RefreshResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	})

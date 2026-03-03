@@ -10,10 +10,10 @@ import (
 type ProjectRepository interface {
 	Create(project *models.Project) error
 	GetByID(id uint64) (*models.Project, error)
-	GetByUserID(userID uint64, offset, limit int) ([]models.Project, error)
+	GetByUserID(userID uint64, projectID uint64) (*models.Project, error)
+	ListByUserID(userID uint64, offset, limit int) ([]models.Project, error)
 	Update(project *models.Project) error
 	Delete(id uint64) error
-	// 可根据需要增加其他查询，如根据刷新间隔等
 }
 
 type projectRepository struct {
@@ -23,7 +23,17 @@ type projectRepository struct {
 func NewProjectRepository(db *gorm.DB) ProjectRepository {
 	return &projectRepository{db: db}
 }
-
+func (r *projectRepository) GetByUserID(userID uint64, projectID uint64) (*models.Project, error) {
+	project := &models.Project{}
+	err := r.db.Where("user_id = ? and project_id = ?", userID, projectID).First(project).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return project, nil
+}
 func (r *projectRepository) Create(project *models.Project) error {
 	result := r.db.Create(project)
 	if result.Error != nil {
@@ -44,7 +54,7 @@ func (r *projectRepository) GetByID(id uint64) (*models.Project, error) {
 	return &project, nil
 }
 
-func (r *projectRepository) GetByUserID(userID uint64, offset, limit int) ([]models.Project, error) {
+func (r *projectRepository) ListByUserID(userID uint64, offset, limit int) ([]models.Project, error) {
 	var projects []models.Project
 	result := r.db.Where("user_id = ?", userID).Offset(offset).Limit(limit).Find(&projects)
 	return projects, result.Error

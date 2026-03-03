@@ -11,13 +11,14 @@ import (
 type TaskRepository interface {
 	Create(task *models.Task) error
 	GetByID(id uint64) (*models.Task, error)
-	// GetByProjectID 分页查询指定项目的任务，返回任务列表和总数。
+	GetByUserID(userID, taskID uint64) (*models.Task, error)
+	// ListByProjectID 分页查询指定项目的任务，返回任务列表和总数。
 	//   - projectID: 项目ID
 	//   - page:      页码，从0开始
 	//   - pageSize:  每页大小。若 pageSize < 0 返回 ErrInvalidInput；
 	//                若 pageSize == 0 则返回所有记录（不分页），总数仍返回。
-	GetByProjectID(projectID uint64, page, pageSize int) ([]models.Task, int64, error)
-	GetByUserID(userID uint64, offset, limit int) ([]models.Task, error)
+	ListByProjectID(projectID uint64, page, pageSize int) ([]models.Task, int64, error)
+	ListByUserID(userID uint64, offset, limit int) ([]models.Task, error)
 	Update(task *models.Task) error
 	Delete(id uint64) error
 	GetByStatus(projectID uint64, status uint8) ([]models.Task, error)
@@ -34,19 +35,29 @@ type TaskRepository interface {
 
 	// GetByTimePeriod 查询指定项目下截止时间在 [start, end] 范围内的任务，支持分页并返回总数。
 	//   - projectID: 项目ID，若为0则忽略项目过滤
-	//   - start:     开始时间（包含）
-	//   - end:       结束时间（包含）
 	//   - page:      页码（从0开始）
 	//   - pageSize:  每页大小，负数返回 ErrInvalidInput，0表示返回所有记录
 	GetByTimePeriod(projectID uint64, start, end time.Time, page, pageSize int) ([]models.Task, int64, error)
+}
+
+func NewTaskRepository(db *gorm.DB) TaskRepository {
+	return &taskRepository{db: db}
 }
 
 type taskRepository struct {
 	db *gorm.DB
 }
 
-func NewTaskRepository(db *gorm.DB) TaskRepository {
-	return &taskRepository{db: db}
+func (r *taskRepository) GetByUserID(userID, taskID uint64) (*models.Task, error) {
+	task := &models.Task{}
+	err := r.db.Where("user_id = ? AND task_id = ?", userID, taskID).First(task).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return task, nil
 }
 
 func (r *taskRepository) GetByDeadlineAfter(projectID uint64, deadline time.Time, page, pageSize int) ([]models.Task, int64, error) {
@@ -107,7 +118,7 @@ func (r *taskRepository) GetByID(id uint64) (*models.Task, error) {
 	return &task, nil
 }
 
-func (r *taskRepository) GetByProjectID(projectID uint64, page, pageSize int) ([]models.Task, int64, error) {
+func (r *taskRepository) ListByProjectID(projectID uint64, page, pageSize int) ([]models.Task, int64, error) {
 	if pageSize < 0 {
 		return nil, 0, ErrInvalidInput
 	}
@@ -138,7 +149,7 @@ func (r *taskRepository) GetByProjectID(projectID uint64, page, pageSize int) ([
 	return tasks, total, nil
 }
 
-func (r *taskRepository) GetByUserID(userID uint64, offset, limit int) ([]models.Task, error) {
+func (r *taskRepository) ListByUserID(userID uint64, offset, limit int) ([]models.Task, error) {
 	var tasks []models.Task
 	result := r.db.Where("user_id = ?", userID).Offset(offset).Limit(limit).Find(&tasks)
 	return tasks, result.Error
