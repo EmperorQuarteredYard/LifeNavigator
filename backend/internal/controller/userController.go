@@ -1,12 +1,11 @@
 package controller
 
 import (
-	"LifeNavigator/backend/internal/models"
-	"LifeNavigator/backend/internal/repository"
-	"LifeNavigator/backend/internal/service"
-	"LifeNavigator/backend/pkg/dto"
-	"LifeNavigator/backend/pkg/errcode"
-	"LifeNavigator/backend/pkg/jwt"
+	"LifeNavigator/internal/models"
+	"LifeNavigator/internal/service"
+	"LifeNavigator/pkg/dto"
+	"LifeNavigator/pkg/errcode"
+	"LifeNavigator/pkg/jwt"
 	"errors"
 	"strconv"
 
@@ -41,7 +40,7 @@ func (ctl *UserController) Register(c *gin.Context) {
 		Phone:    req.Phone,
 	}
 
-	err := ctl.inviteService.InviteUser(user, req.InviteCode)
+	accTok, refTok, err := ctl.inviteService.InviteUser(user, req.InviteCode)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserInfoNotFound):
@@ -50,7 +49,7 @@ func (ctl *UserController) Register(c *gin.Context) {
 			ctl.HandleCode(c, errcode.StatusRegisterNameExist)
 		case errors.Is(err, service.ErrInviteCodeNotFound):
 			ctl.HandleCode(c, errcode.StatusInviteCodeNotFound)
-		case errors.Is(err, repository.ErrInviteCodeUsed): // 需要处理仓储层返回的错误
+		case errors.Is(err, service.ErrInviteCodeUsed): // 需要处理仓储层返回的错误
 			ctl.HandleCode(c, errcode.StatusInviteCodeUsed)
 		default:
 			ctl.HandleCode(c, errcode.StatusServerError)
@@ -58,7 +57,17 @@ func (ctl *UserController) Register(c *gin.Context) {
 		return
 	}
 
-	ctl.Success(c, gin.H{"message": "注册成功"})
+	ctl.Success(c, dto.RegisterResponse{
+		AccessToken:  accTok,
+		RefreshToken: refTok,
+		User: dto.UserProfile{
+			Username:  user.Username,
+			Nickname:  user.Nickname,
+			Email:     user.Email,
+			Phone:     user.Phone,
+			CreatedAt: user.CreatedAt,
+		},
+	})
 }
 
 // Login 用户登录
@@ -109,7 +118,7 @@ func (ctl *UserController) GetUser(c *gin.Context) {
 		return
 	}
 
-	user, err := ctl.userService.FindById(id)
+	user, err := ctl.userService.FindByID(id, id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserNotFound):
@@ -136,7 +145,7 @@ func (ctl *UserController) Profile(c *gin.Context) {
 		return
 	}
 
-	user, err := ctl.userService.FindById(authUser.UserID)
+	user, err := ctl.userService.FindByID(authUser.UserID, authUser.UserID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserNotFound):

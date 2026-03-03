@@ -15,7 +15,7 @@ var (
 var (
 	ErrInviteCodeNotFound = errors.New("邀请码不存在")
 	ErrInvalidToken       = errors.New("Token 不正确")
-	ErrErrInviteCodeUsed  = errors.New("邀请码已被使用")
+	ErrInviteCodeUsed     = errors.New("邀请码已被使用")
 )
 
 // 项目相关

@@ -1,8 +1,8 @@
 package service
 
 import (
-	"LifeNavigator/backend/internal/models"
-	"LifeNavigator/backend/internal/repository"
+	"LifeNavigator/internal/models"
+	"LifeNavigator/internal/repository"
 	"context"
 	"errors"
 	"log"

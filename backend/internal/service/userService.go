@@ -1,9 +1,10 @@
 package service
 
 import (
-	"LifeNavigator/backend/internal/models"
-	"LifeNavigator/backend/internal/repository"
-	"LifeNavigator/backend/pkg/jwt"
+	"LifeNavigator/internal/models"
+	"LifeNavigator/internal/repository"
+	"LifeNavigator/pkg/jwt"
+	"LifeNavigator/pkg/roles"
 	"errors"
 	"log"
 
@@ -11,22 +12,15 @@ import (
 )
 
 type UserService interface {
-	// 注册无需权限
-	Register(user *models.User) error
-	// 登录无需权限
-	Login(username, password string) (*models.User, error)
-	// 查询用户信息：只有自己或管理员可查（这里简化：仅自己可查）
-	FindByID(id uint64, currentUserID uint64) (*models.User, error)
-	GetByUsername(username string, currentUserID uint64) (*models.User, error) // 若允许用户查看他人用户名信息则另当别论，这里仅允许查看自己
-	GetByEmail(email string, currentUserID uint64) (*models.User, error)
-	// 更新用户信息：只有自己可更新
-	Update(user *models.User, currentUserID uint64) error
-	// 硬删除：仅自己可执行（或管理员，这里简化）
-	HardDeleteByID(id uint64, currentUserID uint64) error
-	// 软删除：仅自己可执行
-	SoftDeleteByID(id uint64, currentUserID uint64) error
-	// 刷新令牌无需用户ID
-	RefreshToken(refreshToken string) (accessToken, newRefreshToken string, err error)
+	Register(user *models.User) error                                                  // 注册无需权限
+	Login(username, password string) (*models.User, error)                             // 登录无需权限
+	FindByID(id uint64, currentUserID uint64) (*models.User, error)                    // 查询用户信息：只有自己或管理员可查（这里简化：仅自己可查）
+	GetByUsername(username string, currentUserID uint64) (*models.User, error)         // 若允许用户查看他人用户名信息则另当别论，这里仅允许查看自己
+	GetByEmail(email string, currentUserID uint64) (*models.User, error)               // 若允许用户查看他人用户名信息则另当别论，这里仅允许查看自己
+	Update(user *models.User, currentUserID uint64) error                              // 更新用户信息：只有自己可更新
+	HardDeleteByID(id uint64, currentUserID uint64) error                              // 硬删除：仅自己可执行（或管理员，这里简化）
+	SoftDeleteByID(id uint64, currentUserID uint64) error                              // 软删除：仅自己可执行
+	RefreshToken(refreshToken string) (accessToken, newRefreshToken string, err error) // 刷新令牌无需用户 ID
 }
 
 type userService struct {
@@ -38,6 +32,9 @@ func NewUserService(userRepo repository.UserRepository) UserService {
 }
 
 func (s *userService) Register(user *models.User) error {
+	if user.Role == "" {
+		user.Role = roles.User
+	}
 	if user.Password == "" || user.Username == "" {
 		return ErrUserInfoNotFound
 	}

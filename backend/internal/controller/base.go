@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"LifeNavigator/backend/pkg/errcode"
-	"LifeNavigator/backend/pkg/jwt"
-	"LifeNavigator/backend/pkg/response"
+	"LifeNavigator/pkg/errcode"
+	"LifeNavigator/pkg/jwt"
+	"LifeNavigator/pkg/response"
 
 	"github.com/gin-gonic/gin"
 )

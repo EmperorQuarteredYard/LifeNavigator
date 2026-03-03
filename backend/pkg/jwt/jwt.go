@@ -1,8 +1,8 @@
 package jwt
 
 import (
-	"LifeNavigator/backend/pkg/errcode"
-	"LifeNavigator/backend/pkg/response"
+	"LifeNavigator/pkg/errcode"
+	"LifeNavigator/pkg/response"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -50,7 +50,7 @@ func getConfig() (err error) {
 
 	newConfig := JWTConfig{}
 	var configFile *os.File
-	configFile, err = os.Open("backend/config/jwt.json")
+	configFile, err = os.Open("config/jwt.json")
 
 	if err != nil {
 		return err

@@ -1,7 +1,7 @@
 package database
 
 import (
-	"LifeNavigator/backend/internal/models"
+	"LifeNavigator/internal/models"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -24,7 +24,7 @@ type databaseConfig struct {
 }
 
 func getConfig() (*databaseConfig, error) {
-	file, err := os.Open("backend/config/database.json")
+	file, err := os.Open("config/database.json")
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func GetDatabase() *gorm.DB {
 
 		fmt.Println("successfully connect to database")
 
-		err = db.AutoMigrate(&models.User{}, &models.Arrangement{}, &models.Project{})
+		err = db.AutoMigrate(&models.User{}, &models.InviteCode{}, &models.Project{}, &models.ProjectBudget{}, &models.Task{}, &models.TaskBudget{}, &models.TaskDependency{})
 
 		if err != nil {
 			fmt.Println("Fail to migrate model\nreason:", err)

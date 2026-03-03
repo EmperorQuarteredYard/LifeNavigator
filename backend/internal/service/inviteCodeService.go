@@ -1,8 +1,8 @@
 package service
 
 import (
-	"LifeNavigator/backend/internal/models"
-	"LifeNavigator/backend/internal/repository"
+	"LifeNavigator/internal/models"
+	"LifeNavigator/internal/repository"
 	"errors"
 	"log"
 	"strconv"
@@ -55,7 +55,7 @@ func (s *inviteCodeService) UseCode(token string) error {
 		return ErrInviteCodeNotFound
 	}
 	if errors.Is(err, repository.ErrInviteCodeUsed) {
-		return ErrErrInviteCodeUsed // 直接返回 repository 层的错误（也可包装）
+		return ErrInviteCodeUsed // 直接返回 repository 层的错误（也可包装）
 	}
 	if err != nil {
 		log.Printf("failed to use invite code %s: %v", token, err)

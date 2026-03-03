@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"LifeNavigator/backend/internal/models"
+	"LifeNavigator/internal/models"
 	"errors"
 	"time"
 

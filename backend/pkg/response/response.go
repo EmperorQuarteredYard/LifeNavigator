@@ -1,7 +1,7 @@
 package response
 
 import (
-	"LifeNavigator/backend/pkg/errcode"
+	"LifeNavigator/pkg/errcode"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

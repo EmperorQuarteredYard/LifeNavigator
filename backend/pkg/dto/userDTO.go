@@ -12,6 +12,13 @@ type RegisterRequest struct {
 	InviteCode string `json:"invite_code" binding:"required"`
 }
 
+// RegisterResponse 注册响应
+type RegisterResponse struct {
+	AccessToken  string      `json:"access_token"`
+	RefreshToken string      `json:"refresh_token"`
+	User         UserProfile `json:"user"`
+}
+
 // UserProfile 用户公开信息（不包含 ID）
 type UserProfile struct {
 	Username  string    `json:"username"`

@@ -1,12 +1,12 @@
 package roles
 
 const (
-	Administrator = "administrators" //管理员
-	User          = "users"          //用户
-	Guest         = "guests"         //游客
-	Developer     = "developers"     //开发者
-	Advocator     = "advocators"     //支持者
-	Default       = Guest            //默认为游客
+	Administrator = "administrator" //管理员
+	User          = "user"          //用户
+	Guest         = "guest"         //游客
+	Developer     = "developer"     //开发者
+	Advocator     = "advocator"     //支持者
+	Default       = Guest           //默认为游客
 )
 
 var privilegeValue = map[string]int{

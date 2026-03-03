@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"LifeNavigator/backend/internal/models"
-	"LifeNavigator/backend/internal/service"
-	"LifeNavigator/backend/pkg/dto"
-	"LifeNavigator/backend/pkg/errcode"
+	"LifeNavigator/internal/models"
+	"LifeNavigator/internal/service"
+	"LifeNavigator/pkg/dto"
+	"LifeNavigator/pkg/errcode"
 	"errors"
 	"strconv"
 	"time"
@@ -105,7 +105,7 @@ func (ctl *TaskController) ListProjectTasks(c *gin.Context) {
 		return
 	}
 
-	projectID, err := strconv.ParseUint(c.Param("projectId"), 10, 64)
+	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
@@ -243,7 +243,7 @@ func (ctl *TaskController) GetTasksByStatus(c *gin.Context) {
 		return
 	}
 
-	projectID, err := strconv.ParseUint(c.Param("projectId"), 10, 64)
+	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
@@ -275,7 +275,7 @@ func (ctl *TaskController) GetTasksByDeadlineBefore(c *gin.Context) {
 		return
 	}
 
-	projectID, err := strconv.ParseUint(c.Param("projectId"), 10, 64)
+	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
@@ -322,7 +322,7 @@ func (ctl *TaskController) GetTasksByDeadlineAfter(c *gin.Context) {
 		return
 	}
 
-	projectID, err := strconv.ParseUint(c.Param("projectId"), 10, 64)
+	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
@@ -369,7 +369,7 @@ func (ctl *TaskController) GetTasksByTimePeriod(c *gin.Context) {
 		return
 	}
 
-	projectID, err := strconv.ParseUint(c.Param("projectId"), 10, 64)
+	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return

@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"LifeNavigator/backend/internal/service"
-	"LifeNavigator/backend/pkg/dto"
-	"LifeNavigator/backend/pkg/errcode"
+	"LifeNavigator/internal/service"
+	"LifeNavigator/pkg/dto"
+	"LifeNavigator/pkg/errcode"
 	"errors"
 	"strconv"
 
@@ -99,7 +99,7 @@ func (ctl *InviteController) GetInviteCode(c *gin.Context) {
 
 // ListUserInviteCodes 列出指定用户创建的邀请码（需本人或零号用户）
 func (ctl *InviteController) ListUserInviteCodes(c *gin.Context) {
-	userIDStr := c.Param("userID")
+	userIDStr := c.Param("id")
 	userID, err := strconv.ParseUint(userIDStr, 10, 64)
 	if err != nil {
 		ctl.HandleCode(c, errcode.StatusInvalidParams)

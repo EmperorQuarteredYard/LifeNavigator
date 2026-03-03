@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"LifeNavigator/backend/internal/models"
-	"LifeNavigator/backend/internal/service"
-	"LifeNavigator/backend/pkg/dto"
-	"LifeNavigator/backend/pkg/errcode"
+	"LifeNavigator/internal/models"
+	"LifeNavigator/internal/service"
+	"LifeNavigator/pkg/dto"
+	"LifeNavigator/pkg/errcode"
 	"errors"
 	"strconv"
 
