@@ -4,6 +4,7 @@ import (
 	"LifeNavigator/internal/models"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 
 	"gorm.io/driver/mysql"
@@ -41,24 +42,31 @@ func getConfig() (*databaseConfig, error) {
 
 func GetDatabase() *gorm.DB {
 	if !initialized {
-		config, err := getConfig()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		if config == nil {
-			fmt.Println("config is nil")
-			return nil
-		}
-		dsn := config.Username + ":" + config.Password + "@tcp(" + config.Host + ":" + config.Port + ")/" + config.Database + "?charset=utf8mb4&parseTime=True&loc=Local"
+		//config, err := getConfig()
+		//if err != nil {
+		//	fmt.Println(err)
+		//	os.Exit(1)
+		//}
+		//if config == nil {
+		//	fmt.Println("config is nil")
+		//	return nil
+		//}
+		username := os.Getenv("DB_USER")
+		password := os.Getenv("DB_PASSWORD")
+		database := os.Getenv("DB_NAME")
+		host := os.Getenv("DB_HOST")
+		port := os.Getenv("DB_PORT")
+		var err error
+
+		dsn := username + ":" + password + "@tcp(" + host + ":" + port + ")/" + database + "?charset=utf8mb4&parseTime=True&loc=Local"
 
 		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 		if err != nil {
-			fmt.Println("fail to connect to database\nreason:", err)
+			log.Fatal("fail to connect to database\ndsn:"+dsn+"\nreason:", err)
 			return nil
 		}
 
-		fmt.Println("successfully connect to database")
+		log.Println("successfully connect to database")
 
 		err = db.AutoMigrate(&models.User{}, &models.InviteCode{}, &models.Project{}, &models.ProjectBudget{}, &models.Task{}, &models.TaskBudget{}, &models.TaskDependency{})
 

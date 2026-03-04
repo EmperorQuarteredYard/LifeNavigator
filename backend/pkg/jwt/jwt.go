@@ -3,10 +3,11 @@ package jwt
 import (
 	"LifeNavigator/pkg/errcode"
 	"LifeNavigator/pkg/response"
-	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -48,24 +49,46 @@ func getConfig() (err error) {
 		return nil
 	}
 
-	newConfig := JWTConfig{}
-	var configFile *os.File
-	configFile, err = os.Open("config/jwt.json")
-
+	//newConfig := JWTConfig{}
+	//var configFile *os.File
+	//configFile, err = os.Open("config/jwt.json")
+	//
+	//if err != nil {
+	//	return err
+	//}
+	//defer configFile.Close()
+	//
+	//jsonParser := json.NewDecoder(configFile)
+	//err = jsonParser.Decode(&newConfig)
+	//if err != nil {
+	//	return
+	//}
+	//config = &newConfig
+	//
+	//configInitialized = true
+	//return err
+	//以上是以config文件读取的方式，现已弃用
+	accessTTL, err := strconv.ParseInt(os.Getenv("JWT_ACCESS_TTL"), 10, 64)
 	if err != nil {
-		return err
+		accessTTL = int64(2 * time.Hour)
+		log.Printf("Fail to parse JWT_ACCESS_TTL %v", err)
+		fmt.Printf("Fail to parse JWT_ACCESS_TTL %v", err)
 	}
-	defer configFile.Close()
-
-	jsonParser := json.NewDecoder(configFile)
-	err = jsonParser.Decode(&newConfig)
+	refreshTTL, err := strconv.ParseInt(os.Getenv("JWT_REFRESH_TTL"), 10, 64)
 	if err != nil {
-		return
+		refreshTTL = int64(7 * 24 * time.Hour)
+		log.Printf("Fail to parse JWT_REFRESH_TTL %v", err)
+		fmt.Printf("Fail to parse JWT_REFRESH_TTL %v", err)
 	}
-	config = &newConfig
-
+	config = &JWTConfig{
+		AccessSecret:  os.Getenv("JWT_ACCESS_SECRET"),
+		RefreshSecret: os.Getenv("JWT_REFRESH_SECRET"),
+		Issuer:        os.Getenv("JWT_ISSUER"),
+		AccessTTL:     time.Duration(accessTTL),
+		RefreshTTL:    time.Duration(refreshTTL),
+	}
 	configInitialized = true
-	return err
+	return
 }
 
 func GenerateRefreshToken(userID uint64, role string) (token string, err error) {

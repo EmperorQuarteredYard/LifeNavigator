@@ -10,16 +10,16 @@ import (
 )
 
 func main() {
-	go ServeByRealDatabase()
+	ServeByRealDatabase()
 }
 
 func ServeByRealDatabase() {
 	db := database.GetDatabase()
 	if db == nil {
+		log.Println("failed to connect to database")
 		log.Fatal("failed to connect to database")
 	}
 
-	// 2. 初始化仓储层
 	userRepo := repository.NewUserRepository(db)
 	inviteCodeRepo := repository.NewInviteCodeRepository(db)
 	projectRepo := repository.NewProjectRepository(db)
@@ -41,8 +41,9 @@ func ServeByRealDatabase() {
 	taskCtl := controller.NewTaskController(taskService)
 
 	r := router.InitRouter(userCtl, inviteCtl, projectCtl, taskCtl)
-	if err := r.Run(":23333"); err != nil {
+	log.Println("Listening on port :5083")
+	if err := r.Run(":5083"); err != nil {
+		log.Println("failed to start server: ", err)
 		log.Fatal("failed to start server: ", err)
 	}
-
 }
