@@ -24,7 +24,7 @@ services:
     # 如果应用启动需要等待 MySQL 就绪，可以使用 wait-for-it 脚本（见下文）
 
   mysql:
-    image: mysql:8.0
+    image: mysql:9.6
     ports:
       - "3306:3306"                # 可选：暴露到宿主机方便调试
     environment:
