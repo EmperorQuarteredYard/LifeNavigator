@@ -46,7 +46,7 @@ func (s *userService) Register(user *models.User) error {
 	user.Password = string(hashed)
 	user.Role = "user"
 	if err := s.userRepo.Create(user); err != nil {
-		if errors.Is(err, repository.ErrUserNameExists) {
+		if errors.Is(err, repository.ErrRecordExist) {
 			return ErrUserNameExists
 		}
 		log.Printf("failed to create user: %v", err)

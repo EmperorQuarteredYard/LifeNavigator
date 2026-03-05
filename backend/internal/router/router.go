@@ -57,11 +57,10 @@ func InitRouter(
 		auth.GET("/v0/tasks", taskCtl.ListUserTasks)
 		auth.PUT("/v0/tasks/:id", taskCtl.UpdateTask)
 		auth.DELETE("/v0/tasks/:id", taskCtl.DeleteTask)
+		auth.PUT("/v0/projects/:id/tasks/:id", taskCtl.UpdateTask)
 
 		// 任务查询
 		auth.GET("/v0/projects/:id/tasks/status/:status", taskCtl.GetTasksByStatus)
-		auth.GET("/v0/projects/:id/tasks/deadline/before", taskCtl.GetTasksByDeadlineBefore)
-		auth.GET("/v0/projects/:id/tasks/deadline/after", taskCtl.GetTasksByDeadlineAfter)
 		auth.GET("/v0/projects/:id/tasks/period", taskCtl.GetTasksByTimePeriod)
 
 		// 任务预算

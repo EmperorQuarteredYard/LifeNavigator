@@ -34,9 +34,10 @@ const (
 
 // project 相关(40200-40299)
 const (
-	StatusProjectNotFound = 40201 // 项目不存在
-	StatusTaskNotFound    = 40202 // 任务不存在
-	StatusBudgetNotFound  = 40203 // 预算项不存在
+	StatusProjectNotFound      = 40201 // 项目不存在
+	StatusTaskNotFound         = 40202 // 任务不存在
+	StatusBudgetNotFound       = 40203 // 预算项不存在
+	StatusPrerequisiteNotFound = 40204 // 依赖关系不存在
 )
 
 // 服务器内部错误 (90000-90099)
@@ -47,6 +48,7 @@ const (
 
 var codeMsgMap = map[int]string{
 	Success:                        "success",
+	StatusPrerequisiteNotFound:     "依赖关系不存在",
 	StatusInviteCodeUsed:           "邀请码已被使用",
 	StatusUserNotFount:             "用户不存在",
 	StatusLoginNameOrPasswordWrong: "用户名或密码错误",

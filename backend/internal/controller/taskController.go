@@ -23,6 +23,102 @@ func NewTaskController(taskService service.TaskService) *TaskController {
 	}
 }
 
+func (ctl *TaskController) GetPostrequisite(c *gin.Context) {
+	var req dto.GetPostrequisiteRequest
+	_, ok := ctl.GetAuthUser(c)
+	if !ok {
+		return
+	}
+	if !ctl.BindJSON(c, &req) {
+		return
+	}
+	dependencies, err := ctl.taskService.GetPostrequisite(req.PrerequisiteID)
+	if err != nil {
+		if errors.Is(err, service.ErrTaskDependencyNotFound) {
+			ctl.HandleCode(c, errcode.StatusPrerequisiteNotFound)
+			return
+		}
+		ctl.HandleCode(c, errcode.StatusServerError)
+		return
+	}
+	var responses []dto.DependencyResponse
+	for _, item := range dependencies {
+		responses = append(responses, dto.DependencyResponse{
+			PrerequisiteID: item.PrerequisiteID,
+			TaskID:         item.TaskID,
+		})
+	}
+	ctl.Success(c, responses)
+}
+
+func (ctl *TaskController) GetPrerequisite(c *gin.Context) {
+	var req dto.GetPrerequisiteRequest
+	_, ok := ctl.GetAuthUser(c)
+	if !ok {
+		return
+	}
+	if !ctl.BindJSON(c, &req) {
+		return
+	}
+	dependencies, err := ctl.taskService.GetPrerequisites(req.TaskID)
+	if err != nil {
+		if errors.Is(err, service.ErrTaskDependencyNotFound) {
+			ctl.HandleCode(c, errcode.StatusPrerequisiteNotFound)
+			return
+		}
+		ctl.HandleCode(c, errcode.StatusServerError)
+		return
+	}
+	var responses []dto.DependencyResponse
+	for _, item := range dependencies {
+		responses = append(responses, dto.DependencyResponse{
+			PrerequisiteID: item.PrerequisiteID,
+			TaskID:         item.TaskID,
+		})
+	}
+	ctl.Success(c, responses)
+}
+
+// UnsetPrerequisiteTask 取消设置前置任务
+func (ctl *TaskController) UnsetPrerequisiteTask(c *gin.Context) {
+	authUser, ok := ctl.GetAuthUser(c)
+	if !ok {
+		return
+	}
+	var req dto.SetPrerequisiteRequest
+	if !ctl.BindJSON(c, &req) {
+		return
+	}
+	err := ctl.taskService.UnsetPrerequisiteTask(req.PrerequisiteID, req.TaskID, authUser.UserID)
+	if err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			ctl.HandleCode(c, errcode.StatusInsufficientPerm)
+		} else if errors.Is(err, service.ErrTaskNotFound) {
+			ctl.HandleCode(c, errcode.StatusTaskNotFound)
+		} else if errors.Is(err, service.ErrTaskDependencyNotFound) {
+			ctl.HandleCode(c, errcode.StatusPrerequisiteNotFound)
+		} else {
+			ctl.HandleCode(c, errcode.StatusServerError)
+		}
+		return
+	}
+	ctl.Success(c, "success")
+}
+
+// SetPrerequisiteTask 设置前置任务
+func (ctl *TaskController) SetPrerequisiteTask(c *gin.Context) {
+	var req dto.SetPrerequisiteRequest
+	if !ctl.BindJSON(c, &req) {
+		return
+	}
+	_, err := ctl.taskService.SetPrerequisiteTask(req.PrerequisiteID, req.TaskID)
+	if err != nil {
+		ctl.HandleCode(c, errcode.StatusServerError)
+		return
+	}
+	ctl.Success(c, "success")
+}
+
 // CreateTask 创建任务
 func (ctl *TaskController) CreateTask(c *gin.Context) {
 	authUser, ok := ctl.GetAuthUser(c)
@@ -266,100 +362,6 @@ func (ctl *TaskController) GetTasksByStatus(c *gin.Context) {
 		return
 	}
 	ctl.Success(c, tasks)
-}
-
-// GetTasksByDeadlineBefore 查询截止时间之前的任务
-func (ctl *TaskController) GetTasksByDeadlineBefore(c *gin.Context) {
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-
-	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
-		return
-	}
-
-	deadlineStr := c.Query("deadline")
-	if deadlineStr == "" {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
-		return
-	}
-	deadline, err := time.Parse(time.RFC3339, deadlineStr)
-	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
-		return
-	}
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "0"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
-
-	tasks, total, err := ctl.taskService.GetByDeadlineBefore(projectID, deadline, page, pageSize, authUser.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrForbidden):
-			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
-		case errors.Is(err, service.ErrInvalidInput):
-			ctl.HandleCode(c, errcode.StatusInvalidParams)
-		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
-		}
-		return
-	}
-	ctl.Success(c, gin.H{
-		"tasks": tasks,
-		"total": total,
-		"page":  page,
-		"size":  pageSize,
-	})
-}
-
-// GetTasksByDeadlineAfter 查询截止时间之后的任务
-func (ctl *TaskController) GetTasksByDeadlineAfter(c *gin.Context) {
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-
-	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
-		return
-	}
-
-	deadlineStr := c.Query("deadline")
-	if deadlineStr == "" {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
-		return
-	}
-	deadline, err := time.Parse(time.RFC3339, deadlineStr)
-	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
-		return
-	}
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "0"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
-
-	tasks, total, err := ctl.taskService.GetByDeadlineAfter(projectID, deadline, page, pageSize, authUser.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrForbidden):
-			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
-		case errors.Is(err, service.ErrInvalidInput):
-			ctl.HandleCode(c, errcode.StatusInvalidParams)
-		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
-		}
-		return
-	}
-	ctl.Success(c, gin.H{
-		"tasks": tasks,
-		"total": total,
-		"page":  page,
-		"size":  pageSize,
-	})
 }
 
 // GetTasksByTimePeriod 查询指定时间区间内的任务

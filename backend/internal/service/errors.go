@@ -20,11 +20,12 @@ var (
 
 // 项目相关
 var (
-	ErrProjectNotFound       = errors.New("项目不存在")
-	ErrTaskNotFound          = errors.New("任务不存在")
-	ErrTaskBudgetNotFound    = errors.New("任务预算不存在")
-	ErrProjectBudgetNotFound = errors.New("项目预算不存在")
-	ErrBudgetNotFound        = errors.New("预算项不存在")
+	ErrProjectNotFound        = errors.New("项目不存在")
+	ErrTaskNotFound           = errors.New("任务不存在")
+	ErrTaskDependencyNotFound = errors.New("任务依赖不存在")
+	ErrTaskBudgetNotFound     = errors.New("任务预算不存在")
+	ErrProjectBudgetNotFound  = errors.New("项目预算不存在")
+	ErrBudgetNotFound         = errors.New("预算项不存在")
 )
 
 // 通用

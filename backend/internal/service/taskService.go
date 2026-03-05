@@ -24,13 +24,11 @@ type TaskService interface {
 	UpdateBudget(budget *models.TaskBudget, currentUserID uint64) error
 	DeleteBudget(budgetID uint64, currentUserID uint64) error
 	GetBudgetByTaskID(taskID uint64, currentUserID uint64) ([]models.TaskBudget, error)
-}
-
-type taskService struct {
-	transactor     repository.Transactor
-	taskRepo       repository.TaskRepository
-	taskBudgetRepo repository.TaskBudgetRepository
-	projectRepo    repository.ProjectRepository
+	SetPrerequisiteTask(prerequisiteID, taskID uint64) (dependency *models.TaskDependency, err error)
+	//UnsetPrerequisiteTask 不会检查ID是否有效、用户是否正确
+	UnsetPrerequisiteTask(prerequisiteID, taskID, userID uint64) (err error)
+	GetPrerequisites(taskID uint64) (prerequisites []models.TaskDependency, err error)
+	GetPostrequisite(prerequisiteID uint64) (prerequisites []models.TaskDependency, err error)
 }
 
 func NewTaskService(
@@ -45,6 +43,69 @@ func NewTaskService(
 		taskBudgetRepo: taskBudgetRepo,
 		projectRepo:    projectRepo,
 	}
+}
+
+type taskService struct {
+	transactor     repository.Transactor
+	taskRepo       repository.TaskRepository
+	taskBudgetRepo repository.TaskBudgetRepository
+	projectRepo    repository.ProjectRepository
+}
+
+func (s *taskService) SetPrerequisiteTask(prerequisiteID, taskID uint64) (dependency *models.TaskDependency, err error) {
+	dependency, err = s.taskRepo.SetPrerequisiteTask(prerequisiteID, taskID)
+	if err != nil {
+		log.Println("Fail to set prerequisite task", err)
+		return nil, ErrInternal
+	}
+	return dependency, nil
+}
+
+func (s *taskService) UnsetPrerequisiteTask(prerequisiteID, taskID, userID uint64) (err error) {
+	task, err := s.taskRepo.GetByID(taskID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrTaskNotFound
+		}
+		log.Println("Fail to get task:", err)
+		return ErrInternal
+	}
+	if task.UserID != userID {
+		return ErrForbidden
+	}
+	err = s.taskRepo.UnsetPrerequisiteTask(prerequisiteID, taskID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrTaskDependencyNotFound
+		}
+		log.Println("Fail to unset prerequisite task:", err)
+		return ErrInternal
+	}
+	return nil
+}
+
+func (s *taskService) GetPrerequisites(taskID uint64) (prerequisites []models.TaskDependency, err error) {
+	prerequisites, err = s.taskRepo.GetPrerequisites(taskID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrTaskDependencyNotFound
+		}
+		log.Println("Fail to get prerequisites by taskID:", err)
+		return nil, ErrInternal
+	}
+	return prerequisites, nil
+}
+
+func (s *taskService) GetPostrequisite(prerequisiteID uint64) (prerequisites []models.TaskDependency, err error) {
+	prerequisites, err = s.taskRepo.GetPostrequisite(prerequisiteID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrTaskDependencyNotFound
+		}
+		log.Println("Fail to get prerequisites by prerequisiteID:", err)
+		return nil, ErrInternal
+	}
+	return prerequisites, nil
 }
 
 // checkTaskOwnership 检查任务是否存在且属于当前用户

@@ -69,3 +69,18 @@ type TaskBudgetResponse struct {
 type TaskBudgetSummaryResponse struct {
 	Budgets []*TaskBudgetResponse `json:"budgets"`
 }
+
+type SetPrerequisiteRequest struct {
+	PrerequisiteID uint64 `json:"prerequisite_id" binding:"required"`
+	TaskID         uint64 `json:"task_id" binding:"required"`
+}
+type GetPrerequisiteRequest struct {
+	TaskID uint64 `json:"task_id" binding:"required"`
+}
+type GetPostrequisiteRequest struct {
+	PrerequisiteID uint64 `json:"prerequisite_id" binding:"required"`
+}
+type DependencyResponse struct {
+	PrerequisiteID uint64 `json:"prerequisite_id" binding:"required"`
+	TaskID         uint64 `json:"task_id" binding:"required"`
+}

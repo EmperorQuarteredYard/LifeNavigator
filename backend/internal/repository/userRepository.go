@@ -10,7 +10,7 @@ import (
 // UserRepository 定义了用户数据访问接口
 type UserRepository interface {
 	// Create 创建新用户
-	// 如果用户名已存在，返回 ErrUserNameExists
+	// 如果用户名已存在，返回 ErrRecordExist
 	Create(user *models.User) error
 
 	// GetByID 根据主键 ID 查询用户
@@ -80,7 +80,7 @@ func (r *userRepository) Create(user *models.User) error {
 	var count int64
 	r.db.Model(&models.User{}).Where("username = ?", user.Username).Count(&count)
 	if count > 0 {
-		return ErrUserNameExists
+		return ErrRecordExist
 	}
 	result := r.db.Create(user)
 	if result.Error != nil {

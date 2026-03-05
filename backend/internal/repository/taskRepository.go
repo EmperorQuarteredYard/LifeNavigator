@@ -38,6 +38,15 @@ type TaskRepository interface {
 	//   - page:      页码（从0开始）
 	//   - pageSize:  每页大小，负数返回 ErrInvalidInput，0表示返回所有记录
 	GetByTimePeriod(projectID uint64, start, end time.Time, page, pageSize int) ([]models.Task, int64, error)
+	//SetPrerequisiteTask 不允许跨任务、跨用户创建，会检查ID是否有效
+	//返回错误：
+	// - ErrNotFound:ID无效
+	// - ErrPermissionDenied 跨任务或跨用户
+	SetPrerequisiteTask(prerequisiteID, taskID uint64) (dependency *models.TaskDependency, err error)
+	//UnsetPrerequisiteTask 不会检查ID是否有效、用户是否正确
+	UnsetPrerequisiteTask(prerequisiteID, taskID uint64) (err error)
+	GetPrerequisites(taskID uint64) (prerequisites []models.TaskDependency, err error)
+	GetPostrequisite(prerequisiteID uint64) (prerequisites []models.TaskDependency, err error)
 }
 
 func NewTaskRepository(db *gorm.DB) TaskRepository {
@@ -46,6 +55,69 @@ func NewTaskRepository(db *gorm.DB) TaskRepository {
 
 type taskRepository struct {
 	db *gorm.DB
+}
+
+func (r *taskRepository) GetPostrequisite(prerequisiteID uint64) (prerequisites []models.TaskDependency, err error) {
+	err = r.db.Where("prerequisite_id = ?", prerequisiteID).Find(&prerequisites).Error
+	if err != nil {
+		return nil, err
+	}
+	return prerequisites, err
+}
+
+func (r *taskRepository) GetPrerequisites(taskID uint64) (prerequisites []models.TaskDependency, err error) {
+	err = r.db.Where("task_id = ?", taskID).Find(&prerequisites).Error
+	if err != nil {
+		return nil, err
+	}
+	return prerequisites, nil
+}
+
+func (r *taskRepository) UnsetPrerequisiteTask(prerequisite, task uint64) (err error) {
+	err = r.db.Where("prerequisite_id = ? and task_id ?", prerequisite, task).Delete(&models.TaskDependency{}).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrNotFound
+		}
+		return
+	}
+	return
+}
+
+func (r *taskRepository) SetPrerequisiteTask(prerequisiteID, taskID uint64) (dependency *models.TaskDependency, err error) {
+	task := &models.Task{}
+	prerequisite := &models.Task{}
+
+	if err = r.db.Where("id = ?", taskID).First(task).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if err = r.db.Where("id = ?", prerequisiteID).First(prerequisite).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if prerequisite.UserID != task.UserID || prerequisite.ProjectID != task.ProjectID {
+		return nil, ErrPermissionDenied
+	}
+
+	dependency = &models.TaskDependency{
+		TaskID:         task.ID,
+		ProjectID:      task.ProjectID,
+		PrerequisiteID: prerequisiteID,
+		UserID:         task.UserID,
+	}
+	if err := r.db.Where("task_id = ? and prerequisite_id = ?", taskID, prerequisiteID).First(dependency).Error; err == nil {
+		return dependency, ErrRecordExist
+	}
+	err = r.db.Create(dependency).Error
+	if err != nil {
+		return nil, err
+	}
+	return dependency, nil
 }
 
 func (r *taskRepository) GetByUserID(userID, taskID uint64) (*models.Task, error) {
