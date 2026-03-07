@@ -1,0 +1,98 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'user.dart';
+
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
+_$UserProfileImpl _$$UserProfileImplFromJson(Map<String, dynamic> json) =>
+    _$UserProfileImpl(
+      username: json['username'] as String,
+      nickname: json['nickname'] as String?,
+      email: json['email'] as String?,
+      phone: json['phone'] as String?,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+
+Map<String, dynamic> _$$UserProfileImplToJson(_$UserProfileImpl instance) =>
+    <String, dynamic>{
+      'username': instance.username,
+      'nickname': instance.nickname,
+      'email': instance.email,
+      'phone': instance.phone,
+      'createdAt': instance.createdAt.toIso8601String(),
+    };
+
+_$LoginRequestImpl _$$LoginRequestImplFromJson(Map<String, dynamic> json) =>
+    _$LoginRequestImpl(
+      username: json['username'] as String,
+      password: json['password'] as String,
+    );
+
+Map<String, dynamic> _$$LoginRequestImplToJson(_$LoginRequestImpl instance) =>
+    <String, dynamic>{
+      'username': instance.username,
+      'password': instance.password,
+    };
+
+_$RegisterRequestImpl _$$RegisterRequestImplFromJson(
+        Map<String, dynamic> json) =>
+    _$RegisterRequestImpl(
+      username: json['username'] as String,
+      password: json['password'] as String,
+      nickname: json['nickname'] as String?,
+      email: json['email'] as String?,
+      phone: json['phone'] as String?,
+      inviteCode: json['inviteCode'] as String,
+    );
+
+Map<String, dynamic> _$$RegisterRequestImplToJson(
+        _$RegisterRequestImpl instance) =>
+    <String, dynamic>{
+      'username': instance.username,
+      'password': instance.password,
+      'nickname': instance.nickname,
+      'email': instance.email,
+      'phone': instance.phone,
+      'inviteCode': instance.inviteCode,
+    };
+
+_$AuthResponseImpl _$$AuthResponseImplFromJson(Map<String, dynamic> json) =>
+    _$AuthResponseImpl(
+      accessToken: json['accessToken'] as String,
+      refreshToken: json['refreshToken'] as String,
+      user: UserProfile.fromJson(json['user'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$$AuthResponseImplToJson(_$AuthResponseImpl instance) =>
+    <String, dynamic>{
+      'accessToken': instance.accessToken,
+      'refreshToken': instance.refreshToken,
+      'user': instance.user,
+    };
+
+_$RefreshRequestImpl _$$RefreshRequestImplFromJson(Map<String, dynamic> json) =>
+    _$RefreshRequestImpl(
+      refreshToken: json['refreshToken'] as String,
+    );
+
+Map<String, dynamic> _$$RefreshRequestImplToJson(
+        _$RefreshRequestImpl instance) =>
+    <String, dynamic>{
+      'refreshToken': instance.refreshToken,
+    };
+
+_$RefreshResponseImpl _$$RefreshResponseImplFromJson(
+        Map<String, dynamic> json) =>
+    _$RefreshResponseImpl(
+      accessToken: json['accessToken'] as String,
+      refreshToken: json['refreshToken'] as String,
+    );
+
+Map<String, dynamic> _$$RefreshResponseImplToJson(
+        _$RefreshResponseImpl instance) =>
+    <String, dynamic>{
+      'accessToken': instance.accessToken,
+      'refreshToken': instance.refreshToken,
+    };

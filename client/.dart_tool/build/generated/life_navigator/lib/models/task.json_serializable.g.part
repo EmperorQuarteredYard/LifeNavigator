@@ -1,0 +1,198 @@
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
+_$TaskPaymentImpl _$$TaskPaymentImplFromJson(Map<String, dynamic> json) =>
+    _$TaskPaymentImpl(
+      id: (json['id'] as num).toInt(),
+      taskId: (json['taskId'] as num).toInt(),
+      budgetId: (json['budgetId'] as num).toInt(),
+      amount: (json['amount'] as num).toDouble(),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+    );
+
+Map<String, dynamic> _$$TaskPaymentImplToJson(_$TaskPaymentImpl instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'taskId': instance.taskId,
+      'budgetId': instance.budgetId,
+      'amount': instance.amount,
+      'createdAt': instance.createdAt.toIso8601String(),
+      'updatedAt': instance.updatedAt.toIso8601String(),
+    };
+
+_$TaskImpl _$$TaskImplFromJson(Map<String, dynamic> json) => _$TaskImpl(
+      id: (json['id'] as num).toInt(),
+      userId: (json['userId'] as num).toInt(),
+      projectId: (json['projectId'] as num).toInt(),
+      name: json['name'] as String,
+      description: json['description'] as String?,
+      autoCalculated: json['autoCalculated'] as bool,
+      type: (json['type'] as num).toInt(),
+      status: (json['status'] as num).toInt(),
+      category: json['category'] as String?,
+      deadline: json['deadline'] == null
+          ? null
+          : DateTime.parse(json['deadline'] as String),
+      completedAt: json['completedAt'] == null
+          ? null
+          : DateTime.parse(json['completedAt'] as String),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      payments: (json['payments'] as List<dynamic>?)
+          ?.map((e) => TaskPayment.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$$TaskImplToJson(_$TaskImpl instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'userId': instance.userId,
+      'projectId': instance.projectId,
+      'name': instance.name,
+      'description': instance.description,
+      'autoCalculated': instance.autoCalculated,
+      'type': instance.type,
+      'status': instance.status,
+      'category': instance.category,
+      'deadline': instance.deadline?.toIso8601String(),
+      'completedAt': instance.completedAt?.toIso8601String(),
+      'createdAt': instance.createdAt.toIso8601String(),
+      'updatedAt': instance.updatedAt.toIso8601String(),
+      'payments': instance.payments,
+    };
+
+_$CreateTaskRequestImpl _$$CreateTaskRequestImplFromJson(
+        Map<String, dynamic> json) =>
+    _$CreateTaskRequestImpl(
+      projectId: (json['projectId'] as num).toInt(),
+      name: json['name'] as String,
+      description: json['description'] as String?,
+      autoCalculated: json['autoCalculated'] as bool?,
+      type: (json['type'] as num?)?.toInt(),
+      status: (json['status'] as num?)?.toInt(),
+      category: json['category'] as String?,
+      deadline: json['deadline'] as String?,
+    );
+
+Map<String, dynamic> _$$CreateTaskRequestImplToJson(
+        _$CreateTaskRequestImpl instance) =>
+    <String, dynamic>{
+      'projectId': instance.projectId,
+      'name': instance.name,
+      'description': instance.description,
+      'autoCalculated': instance.autoCalculated,
+      'type': instance.type,
+      'status': instance.status,
+      'category': instance.category,
+      'deadline': instance.deadline,
+    };
+
+_$UpdateTaskRequestImpl _$$UpdateTaskRequestImplFromJson(
+        Map<String, dynamic> json) =>
+    _$UpdateTaskRequestImpl(
+      name: json['name'] as String?,
+      projectId: (json['projectId'] as num?)?.toInt(),
+      description: json['description'] as String?,
+      autoCalculated: json['autoCalculated'] as bool?,
+      type: (json['type'] as num?)?.toInt(),
+      status: (json['status'] as num?)?.toInt(),
+      category: json['category'] as String?,
+      deadline: json['deadline'] as String?,
+    );
+
+Map<String, dynamic> _$$UpdateTaskRequestImplToJson(
+        _$UpdateTaskRequestImpl instance) =>
+    <String, dynamic>{
+      'name': instance.name,
+      'projectId': instance.projectId,
+      'description': instance.description,
+      'autoCalculated': instance.autoCalculated,
+      'type': instance.type,
+      'status': instance.status,
+      'category': instance.category,
+      'deadline': instance.deadline,
+    };
+
+_$FinishTaskRequestImpl _$$FinishTaskRequestImplFromJson(
+        Map<String, dynamic> json) =>
+    _$FinishTaskRequestImpl(
+      time: json['time'] as String,
+    );
+
+Map<String, dynamic> _$$FinishTaskRequestImplToJson(
+        _$FinishTaskRequestImpl instance) =>
+    <String, dynamic>{
+      'time': instance.time,
+    };
+
+_$CreateTaskPaymentRequestImpl _$$CreateTaskPaymentRequestImplFromJson(
+        Map<String, dynamic> json) =>
+    _$CreateTaskPaymentRequestImpl(
+      budgetId: (json['budgetId'] as num).toInt(),
+      amount: (json['amount'] as num).toDouble(),
+    );
+
+Map<String, dynamic> _$$CreateTaskPaymentRequestImplToJson(
+        _$CreateTaskPaymentRequestImpl instance) =>
+    <String, dynamic>{
+      'budgetId': instance.budgetId,
+      'amount': instance.amount,
+    };
+
+_$UpdateTaskPaymentRequestImpl _$$UpdateTaskPaymentRequestImplFromJson(
+        Map<String, dynamic> json) =>
+    _$UpdateTaskPaymentRequestImpl(
+      amount: (json['amount'] as num).toDouble(),
+    );
+
+Map<String, dynamic> _$$UpdateTaskPaymentRequestImplToJson(
+        _$UpdateTaskPaymentRequestImpl instance) =>
+    <String, dynamic>{
+      'amount': instance.amount,
+    };
+
+_$PrerequisitesRequestImpl _$$PrerequisitesRequestImplFromJson(
+        Map<String, dynamic> json) =>
+    _$PrerequisitesRequestImpl(
+      prerequisiteId: (json['prerequisiteId'] as num).toInt(),
+    );
+
+Map<String, dynamic> _$$PrerequisitesRequestImplToJson(
+        _$PrerequisitesRequestImpl instance) =>
+    <String, dynamic>{
+      'prerequisiteId': instance.prerequisiteId,
+    };
+
+_$DependencyImpl _$$DependencyImplFromJson(Map<String, dynamic> json) =>
+    _$DependencyImpl(
+      prerequisiteId: (json['prerequisiteId'] as num).toInt(),
+      taskId: (json['taskId'] as num).toInt(),
+    );
+
+Map<String, dynamic> _$$DependencyImplToJson(_$DependencyImpl instance) =>
+    <String, dynamic>{
+      'prerequisiteId': instance.prerequisiteId,
+      'taskId': instance.taskId,
+    };
+
+_$TaskListResponseImpl _$$TaskListResponseImplFromJson(
+        Map<String, dynamic> json) =>
+    _$TaskListResponseImpl(
+      page: (json['page'] as num).toInt(),
+      total: (json['total'] as num).toInt(),
+      size: (json['size'] as num).toInt(),
+      list: (json['list'] as List<dynamic>)
+          .map((e) => Task.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$$TaskListResponseImplToJson(
+        _$TaskListResponseImpl instance) =>
+    <String, dynamic>{
+      'page': instance.page,
+      'total': instance.total,
+      'size': instance.size,
+      'list': instance.list,
+    };
