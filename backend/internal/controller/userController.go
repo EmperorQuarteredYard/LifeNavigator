@@ -43,16 +43,16 @@ func (ctl *UserController) Register(c *gin.Context) {
 	accTok, refTok, err := ctl.inviteService.InviteUser(user, req.InviteCode)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrUserInfoNotFound):
-			ctl.HandleCode(c, errcode.StatusInvalidParams)
+		case errors.Is(err, service.ErrUserInfoIncomplete):
+			ctl.Code(c, errcode.StatusInvalidParams)
 		case errors.Is(err, service.ErrUserNameExists):
-			ctl.HandleCode(c, errcode.StatusRegisterNameExist)
+			ctl.Code(c, errcode.StatusRegisterNameExist)
 		case errors.Is(err, service.ErrInviteCodeNotFound):
-			ctl.HandleCode(c, errcode.StatusInviteCodeNotFound)
+			ctl.Code(c, errcode.StatusInviteCodeNotFound)
 		case errors.Is(err, service.ErrInviteCodeUsed): // 需要处理仓储层返回的错误
-			ctl.HandleCode(c, errcode.StatusInviteCodeUsed)
+			ctl.Code(c, errcode.StatusInviteCodeUsed)
 		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
+			ctl.ServerError(c)
 		}
 		return
 	}
@@ -81,18 +81,18 @@ func (ctl *UserController) Login(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserNotFound):
-			ctl.HandleCode(c, errcode.StatusUserNotFount)
+			ctl.Code(c, errcode.StatusUserNotFound)
 		case errors.Is(err, service.ErrPasswordWrong):
-			ctl.HandleCode(c, errcode.StatusLoginNameOrPasswordWrong)
+			ctl.Code(c, errcode.StatusLoginNameOrPasswordWrong)
 		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
+			ctl.Code(c, errcode.StatusServerError)
 		}
 		return
 	}
 
 	accessToken, refreshToken, err := jwt.GenerateToken(user.ID, user.Role)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusServerError)
+		ctl.Code(c, errcode.StatusServerError)
 		return
 	}
 
@@ -114,17 +114,17 @@ func (ctl *UserController) GetUser(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
 
-	user, err := ctl.userService.FindByID(id, id)
+	user, err := ctl.userService.GetByID(id, id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserNotFound):
-			ctl.HandleCode(c, errcode.StatusUserNotFount)
+			ctl.Code(c, errcode.StatusUserNotFound)
 		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
+			ctl.Code(c, errcode.StatusServerError)
 		}
 		return
 	}
@@ -145,13 +145,13 @@ func (ctl *UserController) Profile(c *gin.Context) {
 		return
 	}
 
-	user, err := ctl.userService.FindByID(authUser.UserID, authUser.UserID)
+	user, err := ctl.userService.GetByID(authUser.UserID, authUser.UserID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserNotFound):
-			ctl.HandleCode(c, errcode.StatusUserNotFount)
+			ctl.Code(c, errcode.StatusUserNotFound)
 		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
+			ctl.Code(c, errcode.StatusServerError)
 		}
 		return
 	}
@@ -176,11 +176,11 @@ func (ctl *UserController) Refresh(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidToken):
-			ctl.HandleCode(c, errcode.StatusInvalidToken)
+			ctl.Code(c, errcode.StatusInvalidToken)
 		case errors.Is(err, service.ErrUserNotFound):
-			ctl.HandleCode(c, errcode.StatusUserNotFount)
+			ctl.Code(c, errcode.StatusUserNotFound)
 		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
+			ctl.Code(c, errcode.StatusServerError)
 		}
 		return
 	}

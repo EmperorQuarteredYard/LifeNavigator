@@ -16,11 +16,11 @@ type UpdateProjectRequest struct {
 	RefreshInterval uint32 `json:"refresh_interval"`
 }
 
-// ProjectBudgetRequest 项目预算请求
+// ProjectBudgetRequest 项目预算请求（创建/更新共用）
 type ProjectBudgetRequest struct {
-	Type   string  `json:"type" binding:"required"`
-	Budget float64 `json:"budget" binding:"min=0"`
-	Used   float64 `json:"used" binding:"min=0"`
+	AccountID uint64  `json:"account_id"`             // 关联账户，0 表示未关联
+	Budget    float64 `json:"budget" binding:"min=0"` // 预算总额
+	Used      float64 `json:"used" binding:"min=0"`   // 已用金额（创建时通常传0）
 }
 
 // ProjectResponse 项目详情响应
@@ -41,7 +41,7 @@ type ProjectResponse struct {
 type ProjectBudgetResponse struct {
 	ID        uint64    `json:"id"`
 	ProjectID uint64    `json:"project_id"`
-	Type      string    `json:"type"`
+	AccountID uint64    `json:"account_id"` // 关联账户，0 表示未关联
 	Budget    float64   `json:"budget"`
 	Used      float64   `json:"used"`
 	CreatedAt time.Time `json:"created_at"`
@@ -50,7 +50,9 @@ type ProjectBudgetResponse struct {
 
 // ProjectBudgetSummaryResponse 项目预算汇总响应
 type ProjectBudgetSummaryResponse struct {
-	Budgets []*ProjectBudgetResponse `json:"budgets"`
+	Budgets     []*ProjectBudgetResponse `json:"budgets"`
+	TotalBudget float64                  `json:"total_budget"`
+	TotalUsed   float64                  `json:"total_used"`
 }
 
 // ProjectListResponse 项目列表响应（分页）

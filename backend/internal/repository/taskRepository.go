@@ -18,7 +18,7 @@ type TaskRepository interface {
 	//   - pageSize:  每页大小。若 pageSize < 0 返回 ErrInvalidInput；
 	//                若 pageSize == 0 则返回所有记录（不分页），总数仍返回。
 	ListByProjectID(projectID uint64, page, pageSize int) ([]models.Task, int64, error)
-	ListByUserID(userID uint64, offset, limit int) ([]models.Task, error)
+	ListByUserID(userID uint64, offset, limit int) ([]models.Task, int64, error)
 	Update(task *models.Task) error
 	Delete(id uint64) error
 	GetByStatus(projectID uint64, status uint8) ([]models.Task, error)
@@ -46,7 +46,8 @@ type TaskRepository interface {
 	//UnsetPrerequisiteTask 不会检查ID是否有效、用户是否正确
 	UnsetPrerequisiteTask(prerequisiteID, taskID uint64) (err error)
 	GetPrerequisites(taskID uint64) (prerequisites []models.TaskDependency, err error)
-	GetPostrequisite(prerequisiteID uint64) (prerequisites []models.TaskDependency, err error)
+	GetPostrequisites(prerequisiteID uint64) (prerequisites []models.TaskDependency, err error)
+	ListByAccountID(userID, accountID uint64, startTime, endTime time.Time) ([]models.Task, error)
 }
 
 func NewTaskRepository(db *gorm.DB) TaskRepository {
@@ -57,7 +58,22 @@ type taskRepository struct {
 	db *gorm.DB
 }
 
-func (r *taskRepository) GetPostrequisite(prerequisiteID uint64) (prerequisites []models.TaskDependency, err error) {
+func (r *taskRepository) ListByAccountID(userID, accountID uint64, startTime, endTime time.Time) ([]models.Task, error) {
+	var tasks, result []models.Task
+	var payments []models.TaskPayment
+	err := r.db.Where("record_time < ? AND record_time > ? and user_id = ?", endTime, startTime, userID).Find(&tasks).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, task := range tasks {
+		if r.db.Where("task_id = ? and account_id", task.ID, accountID).Find(&payments).RowsAffected != 0 {
+			result = append(result, task)
+		}
+	}
+	return result, nil
+}
+
+func (r *taskRepository) GetPostrequisites(prerequisiteID uint64) (prerequisites []models.TaskDependency, err error) {
 	err = r.db.Where("prerequisite_id = ?", prerequisiteID).Find(&prerequisites).Error
 	if err != nil {
 		return nil, err
@@ -221,10 +237,17 @@ func (r *taskRepository) ListByProjectID(projectID uint64, page, pageSize int) (
 	return tasks, total, nil
 }
 
-func (r *taskRepository) ListByUserID(userID uint64, offset, limit int) ([]models.Task, error) {
+func (r *taskRepository) ListByUserID(userID uint64, offset, limit int) ([]models.Task, int64, error) {
 	var tasks []models.Task
-	result := r.db.Where("user_id = ?", userID).Offset(offset).Limit(limit).Find(&tasks)
-	return tasks, result.Error
+	var total int64
+	if err := r.db.Where("user_id = ?", userID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := r.db.Where("user_id = ?", userID).Offset(offset).Limit(limit).Find(&tasks).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return tasks, total, nil
 }
 
 func (r *taskRepository) Update(task *models.Task) error {

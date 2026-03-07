@@ -11,8 +11,8 @@ import (
 )
 
 type InviteCodeService interface {
-	//GenerateInviteCode 生成邀请码：需要传入当前用户ID，创建者标记为当前用户
-	GenerateInviteCode(amount int, currentUserID uint64) (*models.InviteCode, error)
+	//GenerateInviteCode 生成邀请码：需要传入当前用户ID，创建者标记为当前用户；不校验权限
+	GenerateInviteCode(amount int, currentUserID uint64, role string) (*models.InviteCode, error)
 
 	//UseCode 使用邀请码：无需权限，任何人只要持有 token 即可使用
 	UseCode(token string) error
@@ -32,15 +32,16 @@ func NewInviteCodeService(repo repository.InviteCodeRepository) InviteCodeServic
 	return &inviteCodeService{repo: repo}
 }
 
-func (s *inviteCodeService) GenerateInviteCode(amount int, currentUserID uint64) (*models.InviteCode, error) {
+func (s *inviteCodeService) GenerateInviteCode(amount int, currentUserID uint64, role string) (*models.InviteCode, error) {
 	token := uuid.New().String()
-	// 将用户ID转换为字符串作为创建者标识（示例格式，可按需调整）
+	// 将用户 ID转换为字符串作为创建者标识
 	invitedBy := strconv.FormatUint(currentUserID, 10)
 	code := &models.InviteCode{
-		Token:     token,
-		Amount:    amount,
-		Count:     0,
-		InvitedBy: invitedBy,
+		Token:        token,
+		Amount:       amount,
+		Count:        0,
+		InvitedBy:    invitedBy,
+		InviteAsRole: role,
 	}
 	if err := s.repo.Create(code); err != nil {
 		log.Printf("failed to create invite code: %v", err)

@@ -16,13 +16,14 @@ type ProjectRepository interface {
 	Delete(id uint64) error
 }
 
+func NewProjectRepository(db *gorm.DB) ProjectRepository {
+	return &projectRepository{db: db}
+}
+
 type projectRepository struct {
 	db *gorm.DB
 }
 
-func NewProjectRepository(db *gorm.DB) ProjectRepository {
-	return &projectRepository{db: db}
-}
 func (r *projectRepository) GetByUserID(userID uint64, projectID uint64) (*models.Project, error) {
 	project := &models.Project{}
 	err := r.db.Where("user_id = ? and project_id = ?", userID, projectID).First(project).Error

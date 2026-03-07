@@ -10,4 +10,5 @@ var (
 	ErrInviteCodeUsed   = errors.New("invite code already used")
 	ErrUnexpected       = errors.New("unexpected error in repository")
 	ErrPermissionDenied = errors.New("permission denied")
+	ErrConcurrentUpdate = errors.New("concurrent update")
 )

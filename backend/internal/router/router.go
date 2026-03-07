@@ -39,35 +39,30 @@ func InitRouter(
 		// 项目
 		auth.POST("/v0/projects", projectCtl.CreateProject)
 		auth.GET("/v0/projects/:id", projectCtl.GetProject)
-		auth.GET("/v0/projects", projectCtl.ListProjects)
+		auth.GET("/v0/projects", projectCtl.GetProjectsByUser) // 获取当前用户项目列表
 		auth.PUT("/v0/projects/:id", projectCtl.UpdateProject)
 		auth.DELETE("/v0/projects/:id", projectCtl.DeleteProject)
 
 		// 项目预算
-		auth.POST("/v0/projects/:id/budgets", projectCtl.AddProjectBudget)
-		auth.PUT("/v0/projects/budgets/:budgetId", projectCtl.UpdateProjectBudget)
-		auth.DELETE("/v0/projects/budgets/:budgetId", projectCtl.DeleteProjectBudget)
-		auth.GET("/v0/projects/:id/budgets/summary", projectCtl.GetProjectBudgetSummary)
-		auth.GET("/v0/projects/:id/tasks/budgets/summary", projectCtl.GetTaskBudgetSummary)
+		auth.POST("/v0/projects/:id/budgets", projectCtl.AddBudget)
+		auth.PUT("/v0/projects/budgets/:budgetId", projectCtl.UpdateBudget)
+		auth.DELETE("/v0/projects/budgets/:budgetId", projectCtl.DeleteBudget)
+		auth.GET("/v0/projects/:id/budgets/summary", projectCtl.GetBudgetSummary)
 
 		// 任务
-		auth.POST("/v0/tasks", taskCtl.CreateTask)
 		auth.GET("/v0/tasks/:id", taskCtl.GetTask)
-		auth.GET("/v0/projects/:id/tasks", taskCtl.ListProjectTasks)
-		auth.GET("/v0/tasks", taskCtl.ListUserTasks)
+		auth.GET("/v0/projects/:id/tasks", taskCtl.ListTasks) // 根据 project_id 查询（从查询参数获取）
+		auth.GET("/v0/tasks", taskCtl.ListTasks)              // 当前用户所有任务
 		auth.PUT("/v0/tasks/:id", taskCtl.UpdateTask)
+		auth.PUT("/v0/projects/:id/tasks/:id", taskCtl.UpdateTask) // 注意路径参数重复，需后端处理
+		auth.POST("/v0/tasks", taskCtl.CreateTask)
 		auth.DELETE("/v0/tasks/:id", taskCtl.DeleteTask)
-		auth.PUT("/v0/projects/:id/tasks/:id", taskCtl.UpdateTask)
-
-		// 任务查询
-		auth.GET("/v0/projects/:id/tasks/status/:status", taskCtl.GetTasksByStatus)
-		auth.GET("/v0/projects/:id/tasks/period", taskCtl.GetTasksByTimePeriod)
 
 		// 任务预算
-		auth.POST("/v0/tasks/:id/budgets", taskCtl.AddTaskBudget)
-		auth.PUT("/v0/tasks/budgets/:budgetId", taskCtl.UpdateTaskBudget)
-		auth.DELETE("/v0/tasks/budgets/:budgetId", taskCtl.DeleteTaskBudget)
-		auth.GET("/v0/tasks/:id/budgets", taskCtl.GetTaskBudgets)
+		auth.POST("/v0/tasks/:id/budgets", taskCtl.SetPayment)
+		auth.PUT("/v0/tasks/budgets/:budgetId", taskCtl.UpdatePayment)
+		auth.DELETE("/v0/tasks/budgets/:budgetId", taskCtl.DeletePayment)
+		auth.GET("/v0/tasks/:id/budgets", taskCtl.GetPayments)
 	}
 
 	return r

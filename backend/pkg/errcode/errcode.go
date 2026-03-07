@@ -27,7 +27,7 @@ const (
 const (
 	StatusRegisterNameExist        = 40101 // 表示注册时用户名已存在
 	StatusLoginNameOrPasswordWrong = 40102 // 表示登录时用户名或密码错误
-	StatusUserNotFount             = 40103 // 表示根据提供的标识未找到对应用户（注意拼写：NotFount 应为 NotFound，但为保持兼容保留原拼写）
+	StatusUserNotFound             = 40103 // 表示根据提供的标识未找到对应用户（注意拼写：NotFount 应为 NotFound，但为保持兼容保留原拼写）
 	StatusInviteCodeNotFound       = 40104 // 表示提供的邀请码无效或不存在
 	StatusInviteCodeUsed           = 40105 // 邀请码已被使用
 )
@@ -50,7 +50,7 @@ var codeMsgMap = map[int]string{
 	Success:                        "success",
 	StatusPrerequisiteNotFound:     "依赖关系不存在",
 	StatusInviteCodeUsed:           "邀请码已被使用",
-	StatusUserNotFount:             "用户不存在",
+	StatusUserNotFound:             "用户不存在",
 	StatusLoginNameOrPasswordWrong: "用户名或密码错误",
 	StatusRegisterNameExist:        "用户名已存在",
 	StatusInviteCodeNotFound:       "邀请码无效",

@@ -17,8 +17,6 @@ type ProjectService interface {
 	AddBudget(projectID uint64, budget *models.ProjectBudget, currentUserID uint64) error
 	UpdateBudget(budget *models.ProjectBudget, currentUserID uint64) error
 	DeleteBudget(budgetID uint64, currentUserID uint64) error
-	GetBudgetSummary(projectID uint64, currentUserID uint64) ([]models.ProjectBudget, float64, float64, error)
-	GetTaskBudgetSummary(projectID uint64, currentUserID uint64) ([]models.TaskBudget, error)
 }
 
 type projectService struct {
@@ -122,7 +120,7 @@ func (s *projectService) Delete(id uint64, currentUserID uint64) error {
 			return ErrInternal
 		}
 		for _, task := range tasks {
-			if err := txRepo.TaskBudget.DeleteByTaskID(task.ID); err != nil {
+			if err := txRepo.TaskPayment.DeleteByTaskID(task.ID); err != nil {
 				log.Printf("failed to delete task budgets for task %d: %v", task.ID, err)
 				return ErrInternal
 			}
@@ -202,47 +200,4 @@ func (s *projectService) DeleteBudget(budgetID uint64, currentUserID uint64) err
 		return ErrInternal
 	}
 	return nil
-}
-
-func (s *projectService) GetBudgetSummary(projectID uint64, currentUserID uint64) ([]models.ProjectBudget, float64, float64, error) {
-	// 检查项目所有权
-	_, err := s.checkProjectOwnership(projectID, currentUserID)
-	if err != nil {
-		return nil, 0, 0, err
-	}
-	budgets, err := s.projectBudgetRepo.GetByProjectID(projectID)
-	if err != nil {
-		log.Printf("failed to get project budgets: %v", err)
-		return nil, 0, 0, ErrInternal
-	}
-	var totalBudget, totalUsed float64
-	for _, b := range budgets {
-		totalBudget += b.Budget
-		totalUsed += b.Used
-	}
-	return budgets, totalBudget, totalUsed, nil
-}
-
-func (s *projectService) GetTaskBudgetSummary(projectID uint64, currentUserID uint64) ([]models.TaskBudget, error) {
-	// 检查项目所有权
-	_, err := s.checkProjectOwnership(projectID, currentUserID)
-	if err != nil {
-		return nil, err
-	}
-	tasks, _, err := s.taskRepo.ListByProjectID(projectID, 0, 0)
-	if err != nil {
-		log.Printf("failed to get tasks for project %d: %v", projectID, err)
-		return nil, ErrInternal
-	}
-	var allTaskBudgets []models.TaskBudget
-	for _, task := range tasks {
-		budgets, err := s.taskBudgetRepo.GetByTaskID(task.ID)
-		if err != nil {
-			log.Printf("failed to get task budgets for task %d: %v", task.ID, err)
-			return nil, ErrInternal
-		}
-		allTaskBudgets = append(allTaskBudgets, budgets...)
-	}
-	merged := models.MergeBudgetItems(allTaskBudgets)
-	return merged, nil
 }

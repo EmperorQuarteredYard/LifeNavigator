@@ -68,7 +68,16 @@ func GetDatabase() *gorm.DB {
 
 		log.Println("successfully connect to database")
 
-		err = db.AutoMigrate(&models.User{}, &models.InviteCode{}, &models.Project{}, &models.ProjectBudget{}, &models.Task{}, &models.TaskBudget{}, &models.TaskDependency{})
+		err = db.AutoMigrate(
+			&models.User{},
+			&models.InviteCode{},
+			&models.Project{},
+			&models.ProjectBudget{},
+			&models.Task{},
+			&models.TaskPayment{},
+			&models.TaskDependency{},
+			&models.Account{},
+		)
 
 		if err != nil {
 			fmt.Println("Fail to migrate model\nreason:", err)

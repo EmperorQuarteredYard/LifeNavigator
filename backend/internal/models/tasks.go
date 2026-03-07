@@ -4,7 +4,7 @@ import "time"
 
 type Task struct {
 	ID             uint64 `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	UserID         uint64 `json:"user_id" gorm:"index:idx_user_project"`
+	UserID         uint64 `json:"-" gorm:"index:idx_user_project"`
 	ProjectID      uint64 `json:"project_id" gorm:"index:idx_user_project"`
 	Name           string `json:"name"`
 	Description    string `json:"description"`
@@ -13,14 +13,10 @@ type Task struct {
 	Status         uint8  `json:"status"`
 
 	Category    string     `gorm:"column:category;type:varchar(50)" json:"category"`
-	ForWhom     string     `gorm:"column:for_whom;type:varchar(100)" json:"for_whom"`
 	Deadline    *time.Time `json:"deadline,omitempty"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
-
-	// 关联的任务预算
-	Budgets []TaskBudget `gorm:"foreignKey:TaskID" json:"budgets"`
 }
 type TaskDependency struct {
 	UserID         uint64    `json:"user_id" gorm:"not null"`

@@ -3,6 +3,7 @@ package service
 import (
 	"LifeNavigator/internal/models"
 	"LifeNavigator/pkg/jwt"
+	"LifeNavigator/pkg/roles"
 	"log"
 )
 
@@ -10,7 +11,7 @@ type InviteUserService interface {
 	//InviteUser 邀请注册：需要知道谁在邀请（当前用户），以便在失败时回滚
 	InviteUser(user *models.User, inviteCodeToken string) (accessToken string, refreshToken string, err error)
 	//CreateInviteCode 创建邀请码：需要当前用户
-	CreateInviteCode(inviter *models.User, amount int) (*models.InviteCode, error)
+	CreateInviteCode(inviterID uint64, amount int, role string) (*models.InviteCode, error)
 }
 
 type inviteUserService struct {
@@ -49,6 +50,13 @@ func (s *inviteUserService) InviteUser(user *models.User, inviteCodeToken string
 	return
 }
 
-func (s *inviteUserService) CreateInviteCode(inviter *models.User, amount int) (*models.InviteCode, error) {
-	return s.codeServ.GenerateInviteCode(amount, inviter.ID)
+func (s *inviteUserService) CreateInviteCode(inviterID uint64, amount int, role string) (*models.InviteCode, error) {
+	user, err := s.userServ.GetByID(inviterID, inviterID)
+	if err != nil {
+		return nil, err
+	}
+	if roles.GetPrivilegeValue(user.Role) <= roles.GetPrivilegeValue(role) {
+		return nil, ErrForbidden
+	}
+	return s.codeServ.GenerateInviteCode(amount, inviterID, role)
 }

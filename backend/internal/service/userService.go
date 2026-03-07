@@ -14,7 +14,7 @@ import (
 type UserService interface {
 	Register(user *models.User) error                                                  // 注册无需权限
 	Login(username, password string) (*models.User, error)                             // 登录无需权限
-	FindByID(id uint64, currentUserID uint64) (*models.User, error)                    // 查询用户信息：只有自己或管理员可查（这里简化：仅自己可查）
+	GetByID(id uint64, currentUserID uint64) (*models.User, error)                     // 查询用户信息：只有自己或管理员可查（这里简化：仅自己可查）
 	GetByUsername(username string, currentUserID uint64) (*models.User, error)         // 若允许用户查看他人用户名信息则另当别论，这里仅允许查看自己
 	GetByEmail(email string, currentUserID uint64) (*models.User, error)               // 若允许用户查看他人用户名信息则另当别论，这里仅允许查看自己
 	Update(user *models.User, currentUserID uint64) error                              // 更新用户信息：只有自己可更新
@@ -36,7 +36,7 @@ func (s *userService) Register(user *models.User) error {
 		user.Role = roles.User
 	}
 	if user.Password == "" || user.Username == "" {
-		return ErrUserInfoNotFound
+		return ErrUserInfoIncomplete
 	}
 	hashed, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -70,7 +70,7 @@ func (s *userService) Login(username, password string) (*models.User, error) {
 	return user, nil
 }
 
-func (s *userService) FindByID(id uint64, currentUserID uint64) (*models.User, error) {
+func (s *userService) GetByID(id uint64, currentUserID uint64) (*models.User, error) {
 	// 只允许用户查询自己
 	if id != currentUserID {
 		return nil, ErrForbidden

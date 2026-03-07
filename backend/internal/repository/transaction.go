@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+
 	"gorm.io/gorm"
 )
 
@@ -10,7 +11,8 @@ type TxRepositories struct {
 	Project       ProjectRepository
 	ProjectBudget ProjectBudgetRepository
 	Task          TaskRepository
-	TaskBudget    TaskBudgetRepository
+	TaskPayment   TaskBudgetRepository
+	Account       AccountRepository
 	// 可继续添加其他
 }
 
@@ -34,7 +36,8 @@ func (t *transactor) WithinTransaction(ctx context.Context, fn func(txRepo TxRep
 			Project:       NewProjectRepository(tx),
 			ProjectBudget: NewProjectBudgetRepository(tx),
 			Task:          NewTaskRepository(tx),
-			TaskBudget:    NewTaskBudgetRepository(tx),
+			TaskPayment:   NewTaskPaymentRepository(tx),
+			Account:       NewAccountRepository(tx),
 		}
 		return fn(txRepo)
 	})

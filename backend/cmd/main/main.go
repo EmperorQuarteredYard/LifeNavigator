@@ -25,7 +25,7 @@ func ServeByRealDatabase() {
 	projectRepo := repository.NewProjectRepository(db)
 	projectBudgetRepo := repository.NewProjectBudgetRepository(db)
 	taskRepo := repository.NewTaskRepository(db)
-	taskBudgetRepo := repository.NewTaskBudgetRepository(db)
+	taskBudgetRepo := repository.NewTaskPaymentRepository(db)
 
 	transactor := repository.NewTransactor(db)
 
@@ -43,7 +43,6 @@ func ServeByRealDatabase() {
 	r := router.InitRouter(userCtl, inviteCtl, projectCtl, taskCtl)
 	log.Println("Listening on port :5083")
 	if err := r.Run(":5083"); err != nil {
-		log.Println("failed to start server: ", err)
 		log.Fatal("failed to start server: ", err)
 	}
 }

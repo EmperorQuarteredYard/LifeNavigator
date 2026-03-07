@@ -5,32 +5,31 @@ import (
 	"LifeNavigator/internal/service"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/errcode"
-	"errors"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 type ProjectController struct {
-	BaseController
-	projectService service.ProjectService
+	projectServ service.ProjectService
+	*BaseController
 }
 
-func NewProjectController(projectService service.ProjectService) *ProjectController {
+func NewProjectController(projectServ service.ProjectService) *ProjectController {
 	return &ProjectController{
-		projectService: projectService,
+		projectServ:    projectServ,
+		BaseController: &BaseController{},
 	}
 }
 
 // CreateProject 创建项目
 func (ctl *ProjectController) CreateProject(c *gin.Context) {
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-
 	var req dto.CreateProjectRequest
 	if !ctl.BindJSON(c, &req) {
+		return
+	}
+	authUser, ok := ctl.GetAuthUser(c)
+	if !ok {
 		return
 	}
 
@@ -39,75 +38,72 @@ func (ctl *ProjectController) CreateProject(c *gin.Context) {
 		Description:     req.Description,
 		RefreshInterval: req.RefreshInterval,
 	}
-
-	if err := ctl.projectService.Create(project, authUser.UserID); err != nil {
-		ctl.HandleCode(c, errcode.StatusServerError)
+	err := ctl.projectServ.Create(project, authUser.UserID)
+	if err != nil {
+		ctl.Error(c, err)
 		return
 	}
 	ctl.Success(c, project)
 }
 
-// GetProject 获取项目详情
+// GetProject 获取单个项目详情
 func (ctl *ProjectController) GetProject(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		ctl.Code(c, errcode.StatusInvalidParams)
+		return
+	}
 	authUser, ok := ctl.GetAuthUser(c)
 	if !ok {
 		return
 	}
 
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	project, err := ctl.projectServ.GetByID(id, authUser.UserID)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
-		return
-	}
-
-	project, err := ctl.projectService.GetByID(id, authUser.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrForbidden):
-			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
-		case errors.Is(err, service.ErrProjectNotFound):
-			ctl.HandleCode(c, errcode.StatusProjectNotFound)
-		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
-		}
+		ctl.Error(c, err)
 		return
 	}
 	ctl.Success(c, project)
 }
 
-// ListProjects 列出当前用户的所有项目
-func (ctl *ProjectController) ListProjects(c *gin.Context) {
+// GetProjectsByUser 获取当前用户的项目列表（分页）
+func (ctl *ProjectController) GetProjectsByUser(c *gin.Context) {
+	page, pageSize := ctl.parsePagination(c)
+	offset := (page - 1) * pageSize
 	authUser, ok := ctl.GetAuthUser(c)
 	if !ok {
 		return
 	}
 
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-
-	projects, err := ctl.projectService.ListByUserID(authUser.UserID, offset, limit)
+	projects, err := ctl.projectServ.ListByUserID(authUser.UserID, offset, pageSize)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusServerError)
+		ctl.Error(c, err)
 		return
 	}
-	ctl.Success(c, projects)
+	// 注意：ListByUserID 只返回列表，没有总数，可能需要扩展服务层返回总数
+	// 这里简化处理，只返回列表，前端可自行决定是否显示总数
+	ctl.Success(c, gin.H{
+		"list": projects,
+		"page": page,
+		"size": pageSize,
+	})
 }
 
 // UpdateProject 更新项目
 func (ctl *ProjectController) UpdateProject(c *gin.Context) {
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
-
 	var req dto.UpdateProjectRequest
 	if !ctl.BindJSON(c, &req) {
+		return
+	}
+	authUser, ok := ctl.GetAuthUser(c)
+	if !ok {
 		return
 	}
 
@@ -117,178 +113,133 @@ func (ctl *ProjectController) UpdateProject(c *gin.Context) {
 		Description:     req.Description,
 		RefreshInterval: req.RefreshInterval,
 	}
-
-	err = ctl.projectService.Update(project, authUser.UserID)
+	err = ctl.projectServ.Update(project, authUser.UserID)
 	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrForbidden):
-			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
-		case errors.Is(err, service.ErrProjectNotFound):
-			ctl.HandleCode(c, errcode.StatusProjectNotFound)
-		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
-		}
+		ctl.Error(c, err)
 		return
 	}
-	ctl.Success(c, nil)
+	ctl.Success(c, project)
 }
 
-// DeleteProject 删除项目（级联删除预算和任务预算）
+// DeleteProject 删除项目（级联删除相关预算和任务）
 func (ctl *ProjectController) DeleteProject(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		ctl.Code(c, errcode.StatusInvalidParams)
+		return
+	}
 	authUser, ok := ctl.GetAuthUser(c)
 	if !ok {
 		return
 	}
 
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	err = ctl.projectServ.Delete(id, authUser.UserID)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Error(c, err)
 		return
 	}
-
-	err = ctl.projectService.Delete(id, authUser.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrForbidden):
-			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
-		case errors.Is(err, service.ErrProjectNotFound):
-			ctl.HandleCode(c, errcode.StatusProjectNotFound)
-		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
-		}
-		return
-	}
-	ctl.Success(c, nil)
+	ctl.Success(c, gin.H{"message": "project deleted successfully"})
 }
 
-// AddProjectBudget 添加项目预算
-func (ctl *ProjectController) AddProjectBudget(c *gin.Context) {
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-
-	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+// AddBudget 添加项目预算
+func (ctl *ProjectController) AddBudget(c *gin.Context) {
+	projectIDStr := c.Param("id")
+	projectID, err := strconv.ParseUint(projectIDStr, 10, 64)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
-
 	var req dto.ProjectBudgetRequest
 	if !ctl.BindJSON(c, &req) {
 		return
 	}
-
-	budget := &models.ProjectBudget{
-		Type:   req.Type,
-		Budget: req.Budget,
-		Used:   req.Used,
+	authUser, ok := ctl.GetAuthUser(c)
+	if !ok {
+		return
 	}
 
-	err = ctl.projectService.AddBudget(projectID, budget, authUser.UserID)
+	budget := &models.ProjectBudget{
+		AccountID: req.AccountID,
+		Budget:    req.Budget,
+		Used:      req.Used,
+	}
+	err = ctl.projectServ.AddBudget(projectID, budget, authUser.UserID)
 	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrForbidden):
-			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
-		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
-		}
+		ctl.Error(c, err)
 		return
 	}
 	ctl.Success(c, budget)
 }
 
-// UpdateProjectBudget 更新项目预算
-func (ctl *ProjectController) UpdateProjectBudget(c *gin.Context) {
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-
-	budgetID, err := strconv.ParseUint(c.Param("budgetId"), 10, 64)
+// UpdateBudget 更新项目预算
+func (ctl *ProjectController) UpdateBudget(c *gin.Context) {
+	budgetIDStr := c.Param("budgetId")
+	budgetID, err := strconv.ParseUint(budgetIDStr, 10, 64)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
-
 	var req dto.ProjectBudgetRequest
 	if !ctl.BindJSON(c, &req) {
 		return
 	}
+	authUser, ok := ctl.GetAuthUser(c)
+	if !ok {
+		return
+	}
 
 	budget := &models.ProjectBudget{
-		ID:     budgetID,
-		Type:   req.Type,
-		Budget: req.Budget,
-		Used:   req.Used,
+		ID:        budgetID,
+		AccountID: req.AccountID,
+		Budget:    req.Budget,
+		Used:      req.Used,
 	}
-
-	err = ctl.projectService.UpdateBudget(budget, authUser.UserID)
+	err = ctl.projectServ.UpdateBudget(budget, authUser.UserID)
 	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrForbidden):
-			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
-		case errors.Is(err, service.ErrBudgetNotFound):
-			ctl.HandleCode(c, errcode.StatusBudgetNotFound)
-		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
-		}
+		ctl.Error(c, err)
 		return
 	}
-	ctl.Success(c, gin.H{"message": "更新成功"})
+	ctl.Success(c, budget)
 }
 
-// DeleteProjectBudget 删除项目预算
-func (ctl *ProjectController) DeleteProjectBudget(c *gin.Context) {
+// DeleteBudget 删除项目预算
+func (ctl *ProjectController) DeleteBudget(c *gin.Context) {
+	budgetIDStr := c.Param("budgetId")
+	budgetID, err := strconv.ParseUint(budgetIDStr, 10, 64)
+	if err != nil {
+		ctl.Code(c, errcode.StatusInvalidParams)
+		return
+	}
 	authUser, ok := ctl.GetAuthUser(c)
 	if !ok {
 		return
 	}
 
-	budgetID, err := strconv.ParseUint(c.Param("budgetId"), 10, 64)
+	err = ctl.projectServ.DeleteBudget(budgetID, authUser.UserID)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Error(c, err)
 		return
 	}
-
-	err = ctl.projectService.DeleteBudget(budgetID, authUser.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrForbidden):
-			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
-		case errors.Is(err, service.ErrBudgetNotFound):
-			ctl.HandleCode(c, errcode.StatusBudgetNotFound)
-		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
-		}
-		return
-	}
-	ctl.Success(c, gin.H{"message": "删除成功"})
+	ctl.Success(c, gin.H{"message": "budget deleted successfully"})
 }
 
-// GetProjectBudgetSummary 获取项目预算汇总
-func (ctl *ProjectController) GetProjectBudgetSummary(c *gin.Context) {
+// GetBudgetSummary 获取项目预算汇总
+func (ctl *ProjectController) GetBudgetSummary(c *gin.Context) {
+	projectIDStr := c.Param("id")
+	projectID, err := strconv.ParseUint(projectIDStr, 10, 64)
+	if err != nil {
+		ctl.Code(c, errcode.StatusInvalidParams)
+		return
+	}
 	authUser, ok := ctl.GetAuthUser(c)
 	if !ok {
 		return
 	}
 
-	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	budgets, totalBudget, totalUsed, err := ctl.projectServ.GetBudgetSummary(projectID, authUser.UserID)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
-		return
-	}
-
-	budgets, totalBudget, totalUsed, err := ctl.projectService.GetBudgetSummary(projectID, authUser.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrForbidden):
-			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
-		case errors.Is(err, service.ErrProjectNotFound):
-			ctl.HandleCode(c, errcode.StatusProjectNotFound)
-		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
-		}
+		ctl.Error(c, err)
 		return
 	}
 	ctl.Success(c, gin.H{
@@ -296,32 +247,4 @@ func (ctl *ProjectController) GetProjectBudgetSummary(c *gin.Context) {
 		"total_budget": totalBudget,
 		"total_used":   totalUsed,
 	})
-}
-
-// GetTaskBudgetSummary 获取项目下所有任务的预算汇总
-func (ctl *ProjectController) GetTaskBudgetSummary(c *gin.Context) {
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-
-	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
-		return
-	}
-
-	budgets, err := ctl.projectService.GetTaskBudgetSummary(projectID, authUser.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrForbidden):
-			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
-		case errors.Is(err, service.ErrProjectNotFound):
-			ctl.HandleCode(c, errcode.StatusProjectNotFound)
-		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
-		}
-		return
-	}
-	ctl.Success(c, budgets)
 }

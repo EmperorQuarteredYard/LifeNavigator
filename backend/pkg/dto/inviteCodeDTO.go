@@ -4,7 +4,8 @@ import "time"
 
 // CreateInviteCodeRequest 创建邀请码请求
 type CreateInviteCodeRequest struct {
-	Amount int `json:"amount" binding:"required,min=1"`
+	Amount int    `json:"amount" binding:"required,min=1"`
+	Role   string `json:"role" binding:"required"`
 }
 
 // InviteCodeResponse 邀请码详细信息

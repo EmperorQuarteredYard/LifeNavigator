@@ -36,32 +36,22 @@ func (ctl *InviteController) CreateInviteCode(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if authUser.UserID != 0 {
-		ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
-		return
-	}
 
 	var req dto.CreateInviteCodeRequest
 	if !ctl.BindJSON(c, &req) {
 		return
 	}
 
-	// 获取完整用户信息（需要 Username）
-	user, err := ctl.userService.FindByID(authUser.UserID, authUser.UserID)
+	inviteCode, err := ctl.inviteUserService.CreateInviteCode(authUser.UserID, req.Amount, req.Role)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserNotFound):
-			ctl.HandleCode(c, errcode.StatusUserNotFount)
+			ctl.Code(c, errcode.StatusUserNotFound)
+		case errors.Is(err, service.ErrForbidden):
+			ctl.Code(c, errcode.StatusInsufficientPerm)
 		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
+			ctl.ServerError(c)
 		}
-		return
-	}
-
-	inviteCode, err := ctl.inviteUserService.CreateInviteCode(user, req.Amount)
-	if err != nil {
-		// CreateInviteCode 可能返回的错误：service.ErrInternal 等
-		ctl.HandleCode(c, errcode.StatusServerError)
 		return
 	}
 
@@ -72,7 +62,7 @@ func (ctl *InviteController) CreateInviteCode(c *gin.Context) {
 func (ctl *InviteController) GetInviteCode(c *gin.Context) {
 	token := c.Param("token")
 	if token == "" {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
 
@@ -85,11 +75,11 @@ func (ctl *InviteController) GetInviteCode(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrForbidden):
-			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
+			ctl.Code(c, errcode.StatusInsufficientPermissions)
 		case errors.Is(err, service.ErrInviteCodeNotFound):
-			ctl.HandleCode(c, errcode.StatusInviteCodeNotFound)
+			ctl.Code(c, errcode.StatusInviteCodeNotFound)
 		default:
-			ctl.HandleCode(c, errcode.StatusServerError)
+			ctl.Code(c, errcode.StatusServerError)
 		}
 		return
 	}
@@ -102,7 +92,7 @@ func (ctl *InviteController) ListUserInviteCodes(c *gin.Context) {
 	userIDStr := c.Param("id")
 	userID, err := strconv.ParseUint(userIDStr, 10, 64)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
 
@@ -112,7 +102,7 @@ func (ctl *InviteController) ListUserInviteCodes(c *gin.Context) {
 	}
 	if authUser.UserID != userID && authUser.UserID != 0 {
 		//TODO 这零号用户后期绝对得挨削，不然完蛋(其实也没有那么严重哈哈)
-		ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
+		ctl.Code(c, errcode.StatusInsufficientPermissions)
 		return
 	}
 
@@ -121,7 +111,7 @@ func (ctl *InviteController) ListUserInviteCodes(c *gin.Context) {
 
 	codes, err := ctl.inviteCodeService.ListCodesByUser(userID, offset, limit)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusServerError)
+		ctl.Code(c, errcode.StatusServerError)
 		return
 	}
 

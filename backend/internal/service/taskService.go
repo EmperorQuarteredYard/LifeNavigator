@@ -10,25 +10,24 @@ import (
 )
 
 type TaskService interface {
-	Create(task *models.Task, currentUserID uint64) error
-	GetByID(id uint64, currentUserID uint64) (*models.Task, error)
-	ListByProjectID(projectID uint64, page, pageSize int, currentUserID uint64) ([]models.Task, int64, error)
-	ListByUserID(currentUserID uint64, offset, limit int) ([]models.Task, error)
-	Update(task *models.Task, currentUserID uint64) error
-	Delete(id uint64, currentUserID uint64) error
+	Create(task *models.Task, currentUserID uint64) error                                                     //创建任务
+	GetByID(id uint64, currentUserID uint64) (*models.Task, error)                                            //通过任务 ID获取任务详情
+	ListByProjectID(projectID uint64, page, pageSize int, currentUserID uint64) ([]models.Task, int64, error) //列举一个项目下的所有任务
+	ListByUserID(currentUserID uint64, offset, limit int) ([]models.Task, int64, error)                       //列举一个用户的所有任务
+	Update(task *models.Task, currentUserID uint64) error                                                     //更新任务
+	Delete(id uint64, currentUserID uint64) error                                                             //删除任务，并删除关联关系
 	GetByStatus(projectID uint64, status uint8, currentUserID uint64) ([]models.Task, error)
 	GetByDeadlineBefore(projectID uint64, deadline time.Time, page, pageSize int, currentUserID uint64) ([]models.Task, int64, error)
 	GetByDeadlineAfter(projectID uint64, deadline time.Time, page, pageSize int, currentUserID uint64) ([]models.Task, int64, error)
 	GetByTimePeriod(projectID uint64, start, end time.Time, page, pageSize int, currentUserID uint64) ([]models.Task, int64, error)
-	AddBudget(taskID uint64, budget *models.TaskBudget, currentUserID uint64) error
-	UpdateBudget(budget *models.TaskBudget, currentUserID uint64) error
-	DeleteBudget(budgetID uint64, currentUserID uint64) error
-	GetBudgetByTaskID(taskID uint64, currentUserID uint64) ([]models.TaskBudget, error)
+	AddPayment(taskID uint64, budget *models.TaskPayment, currentUserID uint64) error
+	UpdatePayment(budget *models.TaskPayment, currentUserID uint64) error
+	DeletePayment(budgetID uint64, currentUserID uint64) error
+	GetPaymentByTaskID(taskID uint64, currentUserID uint64) ([]models.TaskPayment, error)
 	SetPrerequisiteTask(prerequisiteID, taskID uint64) (dependency *models.TaskDependency, err error)
-	//UnsetPrerequisiteTask 不会检查ID是否有效、用户是否正确
-	UnsetPrerequisiteTask(prerequisiteID, taskID, userID uint64) (err error)
-	GetPrerequisites(taskID uint64) (prerequisites []models.TaskDependency, err error)
-	GetPostrequisite(prerequisiteID uint64) (prerequisites []models.TaskDependency, err error)
+	UnsetPrerequisiteTask(prerequisiteID, taskID, userID uint64) (err error) //不会检查ID是否有效、用户是否正确
+	GetPrerequisites(taskID, userID uint64) (prerequisites []models.TaskDependency, err error)
+	GetPostrequisite(taskID, userID uint64) (prerequisites []models.TaskDependency, err error)
 }
 
 func NewTaskService(
@@ -84,7 +83,18 @@ func (s *taskService) UnsetPrerequisiteTask(prerequisiteID, taskID, userID uint6
 	return nil
 }
 
-func (s *taskService) GetPrerequisites(taskID uint64) (prerequisites []models.TaskDependency, err error) {
+func (s *taskService) GetPrerequisites(taskID, userID uint64) (prerequisites []models.TaskDependency, err error) {
+	task, err := s.taskRepo.GetByID(taskID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrTaskNotFound
+		}
+		log.Println("Fail to get task:", err)
+		return nil, ErrInternal
+	}
+	if task.UserID != userID {
+		return nil, ErrForbidden
+	}
 	prerequisites, err = s.taskRepo.GetPrerequisites(taskID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -96,13 +106,24 @@ func (s *taskService) GetPrerequisites(taskID uint64) (prerequisites []models.Ta
 	return prerequisites, nil
 }
 
-func (s *taskService) GetPostrequisite(prerequisiteID uint64) (prerequisites []models.TaskDependency, err error) {
-	prerequisites, err = s.taskRepo.GetPostrequisite(prerequisiteID)
+func (s *taskService) GetPostrequisite(taskID, userID uint64) (prerequisites []models.TaskDependency, err error) {
+	task, err := s.taskRepo.GetByID(taskID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrTaskNotFound
+		}
+		log.Println("Fail to get task:", err)
+		return nil, ErrInternal
+	}
+	if task.UserID != userID {
+		return nil, ErrForbidden
+	}
+	prerequisites, err = s.taskRepo.GetPostrequisites(taskID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrTaskDependencyNotFound
 		}
-		log.Println("Fail to get prerequisites by prerequisiteID:", err)
+		log.Println("Fail to get prerequisites by TaskID:", err)
 		return nil, ErrInternal
 	}
 	return prerequisites, nil
@@ -167,13 +188,13 @@ func (s *taskService) ListByProjectID(projectID uint64, page, pageSize int, curr
 	return tasks, total, nil
 }
 
-func (s *taskService) ListByUserID(currentUserID uint64, offset, limit int) ([]models.Task, error) {
-	tasks, err := s.taskRepo.ListByUserID(currentUserID, offset, limit)
+func (s *taskService) ListByUserID(currentUserID uint64, offset, limit int) ([]models.Task, int64, error) {
+	tasks, total, err := s.taskRepo.ListByUserID(currentUserID, offset, limit)
 	if err != nil {
 		log.Printf("failed to list tasks for user %d: %v", currentUserID, err)
-		return nil, ErrInternal
+		return nil, 0, ErrInternal
 	}
-	return tasks, nil
+	return tasks, total, nil
 }
 
 func (s *taskService) Update(task *models.Task, currentUserID uint64) error {
@@ -213,7 +234,7 @@ func (s *taskService) Delete(id uint64, currentUserID uint64) error {
 		}
 
 		// 删除关联预算
-		if err := txRepo.TaskBudget.DeleteByTaskID(id); err != nil {
+		if err := txRepo.TaskPayment.DeleteByTaskID(id); err != nil {
 			log.Printf("failed to delete task budgets: %v", err)
 			return ErrInternal
 		}
@@ -287,71 +308,181 @@ func (s *taskService) GetByTimePeriod(projectID uint64, start, end time.Time, pa
 	return tasks, total, nil
 }
 
-func (s *taskService) AddBudget(taskID uint64, budget *models.TaskBudget, currentUserID uint64) error {
-	// 检查任务所有权
-	_, err := s.checkTaskOwnership(taskID, currentUserID)
-	if err != nil {
-		return err
-	}
-	budget.TaskID = taskID
-	if err := s.taskBudgetRepo.Create(budget); err != nil {
-		log.Printf("failed to create task budget: %v", err)
-		return ErrInternal
-	}
-	return nil
+func (s *taskService) AddPayment(taskID uint64, payment *models.TaskPayment, currentUserID uint64) error {
+	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+		task, err := txRepo.Task.GetByUserID(currentUserID, taskID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrForbidden
+			}
+			return ErrInternal
+		}
+
+		projBudget, err := txRepo.ProjectBudget.GetByID(payment.BudgetID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrBudgetNotFound
+			}
+			return ErrInternal
+		}
+		if projBudget.ProjectID != task.ProjectID {
+			return ErrInvalidInput // 预算不属于该任务所在的项目
+		}
+		if err := txRepo.ProjectBudget.AddUsed(payment.BudgetID, payment.Amount); err != nil {
+			log.Printf("failed to add used to project budgets: %v", err)
+			return ErrInternal
+		}
+		if projBudget.AccountID != 0 {
+			_, err := txRepo.Account.AdjustBalance(currentUserID, projBudget.AccountID, -payment.Amount)
+			if err != nil {
+				if errors.Is(err, repository.ErrNotFound) {
+					return ErrAccountNotFound
+				}
+				if errors.Is(err, repository.ErrConcurrentUpdate) {
+					return ErrConcurrentUpdate
+				}
+				log.Printf("failed to update account balance: %v", err)
+				return ErrInternal
+			}
+		}
+
+		payment.TaskID = taskID
+		if err := txRepo.TaskPayment.Create(payment); err != nil {
+			log.Printf("failed to create task payment: %v", err)
+			return ErrInternal
+		}
+		return nil
+	})
 }
 
-func (s *taskService) UpdateBudget(budget *models.TaskBudget, currentUserID uint64) error {
-	// 获取预算对应的任务ID
-	existing, err := s.taskBudgetRepo.GetByID(budget.ID)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return ErrBudgetNotFound
+func (s *taskService) UpdatePayment(payment *models.TaskPayment, currentUserID uint64) error {
+	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+		oldPayment, err := txRepo.TaskPayment.GetByID(payment.ID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrBudgetNotFound
+			}
+			return ErrInternal
 		}
-		log.Printf("failed to get task budget %d: %v", budget.ID, err)
-		return ErrInternal
-	}
-	// 检查任务所有权
-	_, err = s.checkTaskOwnership(existing.TaskID, currentUserID)
-	if err != nil {
-		return err
-	}
-	if err := s.taskBudgetRepo.Update(budget); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return ErrBudgetNotFound
+
+		//  验证任务所有权
+		_, err = txRepo.Task.GetByUserID(currentUserID, oldPayment.TaskID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrForbidden
+			}
+			return ErrInternal
 		}
-		log.Printf("failed to update task budget %d: %v", budget.ID, err)
-		return ErrInternal
-	}
-	return nil
+
+		//不允许修改 BudgetID
+		if payment.BudgetID != oldPayment.BudgetID {
+			return ErrInvalidInput
+		}
+
+		projBudget, err := txRepo.ProjectBudget.GetByID(payment.BudgetID)
+		if err != nil {
+			return ErrInternal
+		}
+
+		//计算金额变化，并同步预算与账户
+		delta := payment.Amount - oldPayment.Amount
+		if delta != 0 {
+			if delta > 0 {
+				// 增加支出
+				if err := txRepo.ProjectBudget.AddUsed(payment.BudgetID, delta); err != nil {
+					return ErrInternal
+				}
+				if projBudget.AccountID != 0 {
+					_, err := txRepo.Account.AdjustBalance(currentUserID, projBudget.AccountID, -delta)
+					if err != nil {
+						if errors.Is(err, repository.ErrNotFound) {
+							return ErrAccountNotFound
+						}
+						if errors.Is(err, repository.ErrConcurrentUpdate) {
+							return ErrConcurrentUpdate
+						}
+						log.Printf("failed to update account balance: %v", err)
+						return ErrInternal
+					}
+				}
+			} else {
+				// 减少支出
+				dec := -delta
+				if err := txRepo.ProjectBudget.SubtractUsed(payment.BudgetID, dec); err != nil {
+					return ErrInternal
+				}
+				if projBudget.AccountID != 0 {
+					_, err := txRepo.Account.AdjustBalance(currentUserID, projBudget.AccountID, dec)
+					if err != nil {
+						if errors.Is(err, repository.ErrNotFound) {
+							return ErrAccountNotFound
+						}
+						if errors.Is(err, repository.ErrConcurrentUpdate) {
+							return ErrConcurrentUpdate
+						}
+						log.Printf("failed to update account balance: %v", err)
+						return ErrInternal
+					}
+				}
+			}
+		}
+
+		if err := txRepo.TaskPayment.Update(payment); err != nil {
+			return ErrInternal
+		}
+		return nil
+	})
 }
 
-func (s *taskService) DeleteBudget(budgetID uint64, currentUserID uint64) error {
-	// 获取预算对应的任务ID
-	existing, err := s.taskBudgetRepo.GetByID(budgetID)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return ErrBudgetNotFound
+func (s *taskService) DeletePayment(paymentID uint64, currentUserID uint64) error {
+	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+		payment, err := txRepo.TaskPayment.GetByID(paymentID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrBudgetNotFound
+			}
+			return ErrInternal
 		}
-		log.Printf("failed to get task budget %d: %v", budgetID, err)
-		return ErrInternal
-	}
-	// 检查任务所有权
-	_, err = s.checkTaskOwnership(existing.TaskID, currentUserID)
-	if err != nil {
-		return err
-	}
-	if err := s.taskBudgetRepo.Delete(budgetID); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return ErrBudgetNotFound
+
+		_, err = txRepo.Task.GetByUserID(currentUserID, payment.TaskID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrForbidden
+			}
+			return ErrInternal
 		}
-		log.Printf("failed to delete task budget %d: %v", budgetID, err)
-		return ErrInternal
-	}
-	return nil
+
+		projBudget, err := txRepo.ProjectBudget.GetByID(payment.BudgetID)
+		if err != nil {
+			return ErrInternal
+		}
+
+		if err := txRepo.ProjectBudget.SubtractUsed(payment.BudgetID, payment.Amount); err != nil {
+			return ErrInternal
+		}
+
+		if projBudget.AccountID != 0 {
+			_, err := txRepo.Account.AdjustBalance(currentUserID, projBudget.AccountID, payment.Amount)
+			if err != nil {
+				if errors.Is(err, repository.ErrNotFound) {
+					return ErrAccountNotFound
+				}
+				if errors.Is(err, repository.ErrConcurrentUpdate) {
+					return ErrConcurrentUpdate
+				}
+				log.Printf("failed to update account balance: %v", err)
+				return ErrInternal
+			}
+		}
+
+		if err := txRepo.TaskPayment.Delete(paymentID); err != nil {
+			return ErrInternal
+		}
+		return nil
+	})
 }
 
-func (s *taskService) GetBudgetByTaskID(taskID uint64, currentUserID uint64) ([]models.TaskBudget, error) {
+func (s *taskService) GetPaymentByTaskID(taskID uint64, currentUserID uint64) ([]models.TaskPayment, error) {
 	// 检查任务所有权
 	_, err := s.checkTaskOwnership(taskID, currentUserID)
 	if err != nil {
