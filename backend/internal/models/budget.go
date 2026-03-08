@@ -9,7 +9,8 @@ type TaskPayment struct {
 type ProjectBudget struct {
 	ID        uint64  `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
 	ProjectID uint64  `gorm:"not null;index" json:"project_id"`           // 外键
-	AccountID uint64  `json:"account_id"`                                 //扣除哪个账户
+	AccountID uint64  `json:"account_id"`                                 // 扣除哪个账户
+	Type      string  `gorm:"type:varchar(50);default:'money'" json:"type"` // 预算类型：time/money/token/energy
 	Budget    float64 `gorm:"type:decimal(10,2);default:0" json:"budget"` // 预算金额
 	Used      float64 `gorm:"type:decimal(10,2);default:0" json:"used"`   // 已用金额
 }

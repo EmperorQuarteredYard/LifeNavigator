@@ -323,6 +323,7 @@ const ProjectDetailPage = {
                             <table class="table mt-3">
                                 <thead>
                                     <tr>
+                                        <th>类型</th>
                                         <th>账户</th>
                                         <th>预算</th>
                                         <th>已用</th>
@@ -332,6 +333,7 @@ const ProjectDetailPage = {
                                 <tbody>
                                     ${budgets.map(b => `
                                         <tr>
+                                            <td><span class="badge badge-primary">${b.type || 'money'}</span></td>
                                             <td>${b.account_id || '未关联'}</td>
                                             <td>${Utils.formatCurrency(b.budget)}</td>
                                             <td>${Utils.formatCurrency(b.used)}</td>
@@ -364,6 +366,15 @@ const ProjectDetailPage = {
                                     ${(Store.state.accounts || []).map(a => `
                                         <option value="${a.id}">${Utils.escapeHtml(a.type)} (${Utils.formatCurrency(a.balance)})</option>
                                     `).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="budget-type">预算类型</label>
+                                <select id="budget-type" name="type" class="form-select" required>
+                                    <option value="money">金钱</option>
+                                    <option value="time">时间</option>
+                                    <option value="token">Token</option>
+                                    <option value="energy">精力</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -408,11 +419,13 @@ const ProjectDetailPage = {
             if (budget) {
                 document.getElementById('budget-id').value = budget.id;
                 document.getElementById('budget-account').value = budget.account_id || 0;
+                document.getElementById('budget-type').value = budget.type || 'money';
                 document.getElementById('budget-amount').value = budget.budget;
                 document.getElementById('budget-used').value = budget.used;
             }
         } else {
             title.textContent = '添加预算';
+            document.getElementById('budget-type').value = 'money';
         }
         
         modal.classList.add('active');
@@ -429,6 +442,7 @@ const ProjectDetailPage = {
         
         const data = {
             account_id: parseInt(form.account_id.value) || 0,
+            type: form.type.value || 'money',
             budget: parseFloat(form.budget.value) || 0,
             used: parseFloat(form.used.value) || 0
         };

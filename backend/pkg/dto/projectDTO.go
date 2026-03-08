@@ -18,9 +18,10 @@ type UpdateProjectRequest struct {
 
 // ProjectBudgetRequest 项目预算请求（创建/更新共用）
 type ProjectBudgetRequest struct {
-	AccountID uint64  `json:"account_id"`             // 关联账户，0 表示未关联
-	Budget    float64 `json:"budget" binding:"min=0"` // 预算总额
-	Used      float64 `json:"used" binding:"min=0"`   // 已用金额（创建时通常传0）
+	AccountID uint64  `json:"account_id"`                                   // 关联账户，0 表示未关联
+	Type      string  `json:"type" binding:"oneof=time money token energy"` // 预算类型
+	Budget    float64 `json:"budget" binding:"min=0"`                       // 预算总额
+	Used      float64 `json:"used" binding:"min=0"`                         // 已用金额（创建时通常传0）
 }
 
 // ProjectResponse 项目详情响应
@@ -42,6 +43,7 @@ type ProjectBudgetResponse struct {
 	ID        uint64    `json:"id"`
 	ProjectID uint64    `json:"project_id"`
 	AccountID uint64    `json:"account_id"` // 关联账户，0 表示未关联
+	Type      string    `json:"type"`       // 预算类型：time/money/token/energy
 	Budget    float64   `json:"budget"`
 	Used      float64   `json:"used"`
 	CreatedAt time.Time `json:"created_at"`

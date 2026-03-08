@@ -1,17 +1,18 @@
 :root {
-    --primary-color: #4f46e5;
-    --primary-hover: #4338ca;
-    --secondary-color: #6b7280;
-    --success-color: #10b981;
-    --warning-color: #f59e0b;
-    --danger-color: #ef4444;
-    --background-color: #f3f4f6;
+    --primary-color: #d97706;
+    --primary-hover: #b45309;
+    --primary-light: #fbbf24;
+    --secondary-color: #78716c;
+    --success-color: #059669;
+    --warning-color: #ea580c;
+    --danger-color: #dc2626;
+    --background-color: #faf7f2;
     --card-background: #ffffff;
-    --text-primary: #1f2937;
-    --text-secondary: #6b7280;
-    --border-color: #e5e7eb;
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --text-primary: #3d2914;
+    --text-secondary: #78716c;
+    --border-color: #e7e0d8;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
     --radius: 8px;
     --radius-lg: 12px;
     --sidebar-width: 260px;
@@ -68,7 +69,7 @@ h4 { font-size: 1.125rem; }
 .auth-page {
     display: none;
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #d97706 0%, #b45309 50%, #92400e 100%);
     align-items: center;
     justify-content: center;
 }
@@ -169,7 +170,7 @@ h4 { font-size: 1.125rem; }
 }
 
 .nav-link.active {
-    background-color: rgba(79, 70, 229, 0.1);
+    background-color: rgba(217, 119, 6, 0.1);
     color: var(--primary-color);
     border-right: 3px solid var(--primary-color);
 }
