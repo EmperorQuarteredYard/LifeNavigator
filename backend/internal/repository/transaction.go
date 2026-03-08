@@ -13,6 +13,7 @@ type TxRepositories struct {
 	Task          TaskRepository
 	TaskPayment   TaskBudgetRepository
 	Account       AccountRepository
+	User          UserRepository
 	// 可继续添加其他
 }
 
@@ -38,6 +39,7 @@ func (t *transactor) WithinTransaction(ctx context.Context, fn func(txRepo TxRep
 			Task:          NewTaskRepository(tx),
 			TaskPayment:   NewTaskPaymentRepository(tx),
 			Account:       NewAccountRepository(tx),
+			User:          NewUserRepository(tx),
 		}
 		return fn(txRepo)
 	})

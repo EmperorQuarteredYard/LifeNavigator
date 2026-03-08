@@ -223,28 +223,3 @@ func (ctl *ProjectController) DeleteBudget(c *gin.Context) {
 	}
 	ctl.Success(c, gin.H{"message": "budget deleted successfully"})
 }
-
-// GetBudgetSummary 获取项目预算汇总
-func (ctl *ProjectController) GetBudgetSummary(c *gin.Context) {
-	projectIDStr := c.Param("id")
-	projectID, err := strconv.ParseUint(projectIDStr, 10, 64)
-	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
-		return
-	}
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-
-	budgets, totalBudget, totalUsed, err := ctl.projectServ.GetBudgetSummary(projectID, authUser.UserID)
-	if err != nil {
-		ctl.Error(c, err)
-		return
-	}
-	ctl.Success(c, gin.H{
-		"budgets":      budgets,
-		"total_budget": totalBudget,
-		"total_used":   totalUsed,
-	})
-}

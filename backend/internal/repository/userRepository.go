@@ -29,6 +29,10 @@ type UserRepository interface {
 	// 根据用户对象的 ID 进行更新，若记录不存在返回 ErrNotFound
 	Update(user *models.User) error
 
+	// UpdateProfile 更新用户画像
+	// profile最大长度为2000字符，若用户不存在返回 ErrNotFound
+	UpdateProfile(userID uint64, profile string) error
+
 	// Delete 软删除用户（若模型支持软删除）
 	// 若记录不存在返回 ErrNotFound
 	Delete(id uint64) error
@@ -128,6 +132,21 @@ func (r *userRepository) GetByEmail(email string) (*models.User, error) {
 
 func (r *userRepository) Update(user *models.User) error {
 	result := r.db.Save(user)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *userRepository) UpdateProfile(userID uint64, profile string) error {
+	const maxProfileLength = 2000
+	if len(profile) > maxProfileLength {
+		profile = profile[:maxProfileLength]
+	}
+	result := r.db.Model(&models.User{}).Where("id = ?", userID).Update("profile", profile)
 	if result.Error != nil {
 		return result.Error
 	}

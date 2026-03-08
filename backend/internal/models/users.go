@@ -19,4 +19,5 @@ type User struct {
 	Version  uint64 `json:"version" gorm:"default:0"`
 	Email    string `json:"email"`
 	Phone    string `json:"phone"`
+	Profile  string `json:"profile" gorm:"type:varchar(2000);default:''"` // 用户画像，最大2000字符
 }

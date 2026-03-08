@@ -19,6 +19,12 @@ type TaskRepository interface {
 	//                若 pageSize == 0 则返回所有记录（不分页），总数仍返回。
 	ListByProjectID(projectID uint64, page, pageSize int) ([]models.Task, int64, error)
 	ListByUserID(userID uint64, offset, limit int) ([]models.Task, int64, error)
+	// ListCompletedByUserIDAndTimeRange 查询用户在指定时间区间内已完成的任务
+	//   - userID:    用户ID
+	//   - startTime: 开始时间
+	//   - endTime:   结束时间
+	//   返回CompletedAt在[startTime, endTime]范围内且不为nil的任务
+	ListCompletedByUserIDAndTimeRange(userID uint64, startTime, endTime time.Time) ([]models.Task, error)
 	Update(task *models.Task) error
 	Delete(id uint64) error
 	GetByStatus(projectID uint64, status uint8) ([]models.Task, error)
@@ -248,6 +254,17 @@ func (r *taskRepository) ListByUserID(userID uint64, offset, limit int) ([]model
 		return nil, 0, err
 	}
 	return tasks, total, nil
+}
+
+func (r *taskRepository) ListCompletedByUserIDAndTimeRange(userID uint64, startTime, endTime time.Time) ([]models.Task, error) {
+	var tasks []models.Task
+	err := r.db.Where("user_id = ? AND completed_at IS NOT NULL AND completed_at >= ? AND completed_at <= ?", userID, startTime, endTime).
+		Order("completed_at DESC").
+		Find(&tasks).Error
+	if err != nil {
+		return nil, err
+	}
+	return tasks, nil
 }
 
 func (r *taskRepository) Update(task *models.Task) error {

@@ -4,6 +4,7 @@ import (
 	"LifeNavigator/internal/controller"
 	"LifeNavigator/pkg/jwt"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,8 +13,17 @@ func InitRouter(
 	inviteCtl *controller.InviteController,
 	projectCtl *controller.ProjectController,
 	taskCtl *controller.TaskController,
+	accountCtl *controller.AccountController,
+	aiFeatureCtl *controller.AIFeatureController,
 ) *gin.Engine {
 	r := gin.Default()
+	r.Use(cors.New(cors.Config{
+		AllowAllOrigins:  true, // 允许所有来源
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "Device-ID"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
 	// 公开路由（无需认证）
 	public := r.Group("/api")
@@ -47,7 +57,6 @@ func InitRouter(
 		auth.POST("/v0/projects/:id/budgets", projectCtl.AddBudget)
 		auth.PUT("/v0/projects/budgets/:budgetId", projectCtl.UpdateBudget)
 		auth.DELETE("/v0/projects/budgets/:budgetId", projectCtl.DeleteBudget)
-		auth.GET("/v0/projects/:id/budgets/summary", projectCtl.GetBudgetSummary)
 
 		// 任务
 		auth.GET("/v0/tasks/:id", taskCtl.GetTask)
@@ -63,6 +72,21 @@ func InitRouter(
 		auth.PUT("/v0/tasks/budgets/:budgetId", taskCtl.UpdatePayment)
 		auth.DELETE("/v0/tasks/budgets/:budgetId", taskCtl.DeletePayment)
 		auth.GET("/v0/tasks/:id/budgets", taskCtl.GetPayments)
+
+		// 账户
+		auth.POST("/v0/accounts", accountCtl.CreateAccount)             // 创建账户
+		auth.GET("/v0/accounts", accountCtl.ListAccounts)               // 获取当前用户所有账户
+		auth.GET("/v0/accounts/:id", accountCtl.GetAccount)             // 获取单个账户详情
+		auth.DELETE("/v0/accounts/:id", accountCtl.DeleteAccount)       // 删除账户
+		auth.POST("/v0/accounts/:id/balance", accountCtl.AdjustBalance) // 调整余额
+
+		// 账户关联查询
+		auth.GET("/v0/accounts/:id/tasks", accountCtl.ListLinkedTasks)       // 获取账户关联的任务和付款
+		auth.GET("/v0/accounts/:id/payments", accountCtl.ListLinkedPayments) // 获取账户关联的付款
+
+		// AI功能
+		auth.POST("/v0/ai/reduce-project", aiFeatureCtl.ReduceProject) // AI辅助创建项目
+		auth.POST("/v0/ai/summary", aiFeatureCtl.Summary)              // AI总结用户成就
 	}
 
 	return r
