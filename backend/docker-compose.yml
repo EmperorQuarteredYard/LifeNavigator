@@ -17,6 +17,7 @@ services:
       - JWT_ISSUER=LiuShuangLifeNavigatorDemo
       - JWT_ACCESS_TTL=7200000000000      #2小时
       - JWT_REFRESH_TTL=259200000000000   #3天
+      - GLM_TOKEN=7651506f29904380a06f3b9f74ec8088.NI2VwKwuX0qvCKgs
     depends_on:
       - mysql
     networks:

@@ -1,7 +1,6 @@
 package main
 
 import (
-	clicontroller "LifeNavigator/cmd/CLIController"
 	"LifeNavigator/internal/controller"
 	"LifeNavigator/internal/database"
 	"LifeNavigator/internal/models"
@@ -54,14 +53,14 @@ func ServeByRealDatabase() {
 		Nickname: "Administrator",
 	})
 
-	r := router.InitRouter(userCtl, inviteCtl, projectCtl, taskCtl, accountCtl, aiFeatureCtl)
+	r := router.InitRouter(userCtl, inviteCtl, projectCtl, taskCtl, accountCtl, aiFeatureCtl) //,
 	log.Println("Listening on port :5083")
-	go func() {
-		if err := r.Run(":5083"); err != nil {
-			log.Fatal("failed to start server: ", err)
-		}
+	//go func() {
+	if err := r.Run(":5083"); err != nil {
+		log.Fatal("failed to start server: ", err)
+	}
 
-	}()
-	cliCTL := clicontroller.NewCLIController(userService, accountService, projectService, taskService, inviteCodeService, inviteUserService)
-	cliCTL.Run()
+	//}()
+	//cliCTL := clicontroller.NewCLIController(userService, accountService, projectService, taskService, inviteCodeService, inviteUserService)
+	//cliCTL.Run()
 }

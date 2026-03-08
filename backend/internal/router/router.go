@@ -63,7 +63,6 @@ func InitRouter(
 		auth.GET("/v0/projects/:id/tasks", taskCtl.ListTasks) // 根据 project_id 查询（从查询参数获取）
 		auth.GET("/v0/tasks", taskCtl.ListTasks)              // 当前用户所有任务
 		auth.PUT("/v0/tasks/:id", taskCtl.UpdateTask)
-		auth.PUT("/v0/projects/:id/tasks/:id", taskCtl.UpdateTask) // 注意路径参数重复，需后端处理
 		auth.POST("/v0/tasks", taskCtl.CreateTask)
 		auth.DELETE("/v0/tasks/:id", taskCtl.DeleteTask)
 
@@ -84,9 +83,9 @@ func InitRouter(
 		auth.GET("/v0/accounts/:id/tasks", accountCtl.ListLinkedTasks)       // 获取账户关联的任务和付款
 		auth.GET("/v0/accounts/:id/payments", accountCtl.ListLinkedPayments) // 获取账户关联的付款
 
-		// AI功能
-		auth.POST("/v0/ai/reduce-project", aiFeatureCtl.ReduceProject) // AI辅助创建项目
-		auth.POST("/v0/ai/summary", aiFeatureCtl.Summary)              // AI总结用户成就
+		// AI 功能
+		auth.POST("/v0/ai/reduce-project", aiFeatureCtl.ReduceProject) // AI 辅助创建项目
+		auth.POST("/v0/ai/summary", aiFeatureCtl.Summary)              // AI 总结用户成就
 	}
 
 	return r

@@ -167,8 +167,13 @@ func (s *aiFeatureService) ReduceProject(ctx context.Context, userID uint64, pro
 	}
 
 	if err := scanner.Err(); err != nil {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "Error reading stream"}
-		return err
+		if err == io.EOF {
+			log.Printf("GLM API stream ended normally (EOF)")
+		} else {
+			log.Printf("Error reading GLM API stream: %v", err)
+			eventChan <- StreamEvent{Type: EventTypeError, Content: fmt.Sprintf("Error reading stream: %v", err)}
+			return err
+		}
 	}
 
 	return s.parseAndCreateEntities(ctx, userID, fullContent.String(), eventChan)
@@ -516,8 +521,13 @@ func (s *aiFeatureService) Summary(ctx context.Context, userID uint64, startTime
 	}
 
 	if err := scanner.Err(); err != nil {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "Error reading stream"}
-		return "", err
+		if err == io.EOF {
+			log.Printf("GLM API stream ended normally (EOF) during Summary")
+		} else {
+			log.Printf("Error reading GLM API stream during Summary: %v", err)
+			eventChan <- StreamEvent{Type: EventTypeError, Content: fmt.Sprintf("Error reading stream: %v", err)}
+			return "", err
+		}
 	}
 
 	eventChan <- StreamEvent{

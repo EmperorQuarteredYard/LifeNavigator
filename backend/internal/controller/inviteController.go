@@ -46,9 +46,9 @@ func (ctl *InviteController) CreateInviteCode(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserNotFound):
-			ctl.Code(c, errcode.StatusUserNotFound)
+			ctl.HandleCode(c, errcode.StatusUserNotFound)
 		case errors.Is(err, service.ErrForbidden):
-			ctl.Code(c, errcode.StatusInsufficientPerm)
+			ctl.HandleCode(c, errcode.StatusInsufficientPerm)
 		default:
 			ctl.ServerError(c)
 		}
@@ -62,7 +62,7 @@ func (ctl *InviteController) CreateInviteCode(c *gin.Context) {
 func (ctl *InviteController) GetInviteCode(c *gin.Context) {
 	token := c.Param("token")
 	if token == "" {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 
@@ -75,11 +75,11 @@ func (ctl *InviteController) GetInviteCode(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrForbidden):
-			ctl.Code(c, errcode.StatusInsufficientPermissions)
+			ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
 		case errors.Is(err, service.ErrInviteCodeNotFound):
-			ctl.Code(c, errcode.StatusInviteCodeNotFound)
+			ctl.HandleCode(c, errcode.StatusInviteCodeNotFound)
 		default:
-			ctl.Code(c, errcode.StatusServerError)
+			ctl.HandleCode(c, errcode.StatusServerError)
 		}
 		return
 	}
@@ -92,7 +92,7 @@ func (ctl *InviteController) ListUserInviteCodes(c *gin.Context) {
 	userIDStr := c.Param("id")
 	userID, err := strconv.ParseUint(userIDStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 
@@ -102,7 +102,7 @@ func (ctl *InviteController) ListUserInviteCodes(c *gin.Context) {
 	}
 	if authUser.UserID != userID && authUser.UserID != 0 {
 		//TODO 这零号用户后期绝对得挨削，不然完蛋(其实也没有那么严重哈哈)
-		ctl.Code(c, errcode.StatusInsufficientPermissions)
+		ctl.HandleCode(c, errcode.StatusInsufficientPermissions)
 		return
 	}
 
@@ -111,7 +111,7 @@ func (ctl *InviteController) ListUserInviteCodes(c *gin.Context) {
 
 	codes, err := ctl.inviteCodeService.ListCodesByUser(userID, offset, limit)
 	if err != nil {
-		ctl.Code(c, errcode.StatusServerError)
+		ctl.HandleCode(c, errcode.StatusServerError)
 		return
 	}
 

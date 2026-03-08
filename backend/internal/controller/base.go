@@ -6,7 +6,9 @@ import (
 	"LifeNavigator/pkg/jwt"
 	"LifeNavigator/pkg/response"
 	"errors"
+	"io"
 	"log"
+	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -14,10 +16,47 @@ import (
 
 type BaseController struct{}
 
+var codeToHttpStatus = map[int]int{
+	errcode.Success:                        http.StatusOK,
+	errcode.StatusInvalidToken:             http.StatusUnauthorized,
+	errcode.StatusMissedToken:              http.StatusUnauthorized,
+	errcode.StatusUserNotAuthenticated:     http.StatusUnauthorized,
+	errcode.StatusInvalidUserData:          http.StatusBadRequest,
+	errcode.StatusInsufficientPermissions:  http.StatusForbidden,
+	errcode.StatusInvalidParams:            http.StatusBadRequest,
+	errcode.StatusUnauthorized:             http.StatusUnauthorized,
+	errcode.StatusNotFound:                 http.StatusNotFound,
+	errcode.StatusDuplicate:                http.StatusConflict,
+	errcode.StatusInsufficientPerm:         http.StatusForbidden,
+	errcode.StatusRegisterNameExist:        http.StatusConflict,
+	errcode.StatusLoginNameOrPasswordWrong: http.StatusUnauthorized,
+	errcode.StatusUserNotFound:             http.StatusNotFound,
+	errcode.StatusInviteCodeNotFound:       http.StatusNotFound,
+	errcode.StatusInviteCodeUsed:           http.StatusBadRequest,
+	errcode.StatusProjectNotFound:          http.StatusNotFound,
+	errcode.StatusTaskNotFound:             http.StatusNotFound,
+	errcode.StatusBudgetNotFound:           http.StatusNotFound,
+	errcode.StatusPrerequisiteNotFound:     http.StatusNotFound,
+	errcode.StatusServerError:              http.StatusInternalServerError,
+	errcode.StatusDatabaseError:            http.StatusInternalServerError,
+}
+
+func getHttpStatus(code int) int {
+	if httpStatus, ok := codeToHttpStatus[code]; ok {
+		return httpStatus
+	}
+	return http.StatusInternalServerError
+}
+
 // BindJSON 绑定 JSON 并自动处理错误
 func (b *BaseController) BindJSON(c *gin.Context, obj interface{}) bool {
 	if err := c.ShouldBindJSON(obj); err != nil {
-		response.Code(c, errcode.StatusInvalidParams)
+		if err == io.EOF {
+			log.Printf("Empty request body from %s", c.ClientIP())
+		} else {
+			log.Printf("JSON bind error from %s: %v", c.ClientIP(), err)
+		}
+		b.HandleCode(c, errcode.StatusInvalidParams)
 		return false
 	}
 	return true
@@ -27,59 +66,59 @@ func (b *BaseController) BindJSON(c *gin.Context, obj interface{}) bool {
 func (b *BaseController) GetAuthUser(c *gin.Context) (*jwt.AuthUser, bool) {
 	val, exists := c.Get("user")
 	if !exists {
-		response.Code(c, errcode.StatusUnauthorized)
+		b.HandleCode(c, errcode.StatusUnauthorized)
 		return nil, false
 	}
-	user, ok := val.(jwt.AuthUser)
+	user, ok := val.(*jwt.AuthUser)
 	if !ok {
-		response.Code(c, errcode.StatusInvalidUserData)
+		b.HandleCode(c, errcode.StatusInvalidUserData)
 		return nil, false
 	}
-	return &user, true
+	return user, true
 }
 
 func (b *BaseController) ServerError(c *gin.Context) {
-	response.Code(c, errcode.StatusServerError)
+	b.HandleCode(c, errcode.StatusServerError)
 }
 
 // 为保证性能，请视情况使用
 func (b *BaseController) Error(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, service.ErrUserNotFound):
-		response.Code(c, errcode.StatusUserNotFound)
+		b.HandleCode(c, errcode.StatusUserNotFound)
 	case errors.Is(err, service.ErrUserNameExists):
-		response.Code(c, errcode.StatusRegisterNameExist)
+		b.HandleCode(c, errcode.StatusRegisterNameExist)
 	case errors.Is(err, service.ErrPasswordWrong):
-		response.Code(c, errcode.StatusLoginNameOrPasswordWrong)
+		b.HandleCode(c, errcode.StatusLoginNameOrPasswordWrong)
 	case errors.Is(err, service.ErrForbidden):
-		response.Code(c, errcode.StatusInsufficientPerm)
+		b.HandleCode(c, errcode.StatusInsufficientPerm)
 	case errors.Is(err, service.ErrUserInfoIncomplete):
-		response.Code(c, errcode.StatusInvalidUserData)
+		b.HandleCode(c, errcode.StatusInvalidUserData)
 	case errors.Is(err, service.ErrInviteCodeNotFound):
-		response.Code(c, errcode.StatusInviteCodeNotFound)
+		b.HandleCode(c, errcode.StatusInviteCodeNotFound)
 	case errors.Is(err, service.ErrInviteCodeUsed):
-		response.Code(c, errcode.StatusInviteCodeUsed)
+		b.HandleCode(c, errcode.StatusInviteCodeUsed)
 	case errors.Is(err, service.ErrInvalidToken):
-		response.Code(c, errcode.StatusInvalidToken)
+		b.HandleCode(c, errcode.StatusInvalidToken)
 	case errors.Is(err, service.ErrProjectNotFound):
-		response.Code(c, errcode.StatusProjectNotFound)
+		b.HandleCode(c, errcode.StatusProjectNotFound)
 	case errors.Is(err, service.ErrTaskNotFound):
-		response.Code(c, errcode.StatusTaskNotFound)
+		b.HandleCode(c, errcode.StatusTaskNotFound)
 	case errors.Is(err, service.ErrTaskDependencyNotFound):
-		response.Code(c, errcode.StatusPrerequisiteNotFound)
+		b.HandleCode(c, errcode.StatusPrerequisiteNotFound)
 	case errors.Is(err, service.ErrTaskBudgetNotFound) ||
 		errors.Is(err, service.ErrProjectBudgetNotFound) ||
 		errors.Is(err, service.ErrBudgetNotFound):
-		response.Code(c, errcode.StatusBudgetNotFound)
+		b.HandleCode(c, errcode.StatusBudgetNotFound)
 	case errors.Is(err, service.ErrInternal):
-		response.Code(c, errcode.StatusServerError)
+		b.HandleCode(c, errcode.StatusServerError)
 	case errors.Is(err, service.ErrInvalidInput):
-		response.Code(c, errcode.StatusInvalidParams)
+		b.HandleCode(c, errcode.StatusInvalidParams)
 	case errors.Is(err, service.ErrDuplicate):
-		response.Code(c, errcode.StatusDuplicate)
+		b.HandleCode(c, errcode.StatusDuplicate)
 	default:
 		log.Printf("service 层有未映射的错误：%v", err)
-		response.Code(c, errcode.StatusServerError)
+		b.HandleCode(c, errcode.StatusServerError)
 	}
 }
 
@@ -88,8 +127,8 @@ func (b *BaseController) Success(c *gin.Context, data interface{}) {
 	response.Success(c, data)
 }
 
-func (b *BaseController) Code(c *gin.Context, code int) {
-	response.Code(c, code)
+func (b *BaseController) HandleCode(c *gin.Context, code int) {
+	response.HandleCode(c, getHttpStatus(code), code)
 }
 
 func (b *BaseController) parsePagination(c *gin.Context) (page, pageSize int) {

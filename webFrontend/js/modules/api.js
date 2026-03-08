@@ -47,11 +47,21 @@ const API = {
         if (contentType && contentType.includes('application/json')) {
             const data = await response.json();
             
+            console.log('[API Response]', {
+                url: response.url,
+                status: response.status,
+                data: data
+            });
+            
             if (!response.ok) {
-                throw new Error(data.error || `请求失败 (${response.status})`);
+                throw new Error(data.message || data.error || `请求失败 (${response.status})`);
             }
             
-            return data;
+            if (data.code !== undefined && data.code !== 0) {
+                throw new Error(data.message || `请求失败 (code: ${data.code})`);
+            }
+            
+            return data.data !== undefined ? data.data : data;
         }
         
         if (!response.ok) {
@@ -76,6 +86,7 @@ const API = {
             
             if (response.ok) {
                 const data = await response.json();
+                console.log('[Token Refresh Response]', data);
                 Store.setToken(data.access_token);
                 Store.setRefreshToken(data.refresh_token);
                 return true;
@@ -158,6 +169,7 @@ const API = {
                     
                     try {
                         const event = JSON.parse(data);
+                        console.log('[SSE Event]', event);
                         if (callbacks.onEvent) {
                             callbacks.onEvent(event);
                         }

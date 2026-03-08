@@ -63,7 +63,7 @@ func (ctl *TaskController) DeleteTask(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	authUser, ok := ctl.GetAuthUser(c)
@@ -84,7 +84,7 @@ func (ctl *TaskController) GetTask(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	authUser, ok := ctl.GetAuthUser(c)
@@ -105,7 +105,7 @@ func (ctl *TaskController) UpdateTask(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	var req dto.UpdateTaskRequest
@@ -153,7 +153,7 @@ func (ctl *TaskController) ListTasks(c *gin.Context) {
 	if projectIDStr != "" {
 		projectID, err = strconv.ParseUint(projectIDStr, 10, 64)
 		if err != nil {
-			ctl.Code(c, errcode.StatusInvalidParams)
+			ctl.HandleCode(c, errcode.StatusInvalidParams)
 			return
 		}
 	}
@@ -194,7 +194,7 @@ func (ctl *TaskController) FinishTask(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	authUser, ok := ctl.GetAuthUser(c)
@@ -234,7 +234,7 @@ func (ctl *TaskController) GetPostrequisites(c *gin.Context) {
 	idStr := c.Param("id")
 	prerequisiteID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	authUser, ok := ctl.GetAuthUser(c)
@@ -254,7 +254,7 @@ func (ctl *TaskController) GetPrerequisites(c *gin.Context) {
 	idStr := c.Param("id")
 	taskID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	authUser, ok := ctl.GetAuthUser(c)
@@ -274,7 +274,7 @@ func (ctl *TaskController) SetPrerequisites(c *gin.Context) {
 	idStr := c.Param("id")
 	taskID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	var req dto.PrerequisitesRequest
@@ -303,7 +303,7 @@ func (ctl *TaskController) UnsetPrerequisites(c *gin.Context) {
 	idStr := c.Param("id")
 	taskID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	var req dto.PrerequisitesRequest
@@ -327,7 +327,7 @@ func (ctl *TaskController) SetPayment(c *gin.Context) {
 	idStr := c.Param("id")
 	taskID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	var req dto.CreateTaskPaymentRequest
@@ -356,7 +356,7 @@ func (ctl *TaskController) UpdatePayment(c *gin.Context) {
 	idStr := c.Param("id")
 	budgetID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	var req dto.UpdateTaskPaymentRequest
@@ -384,7 +384,7 @@ func (ctl *TaskController) DeletePayment(c *gin.Context) {
 	idStr := c.Param("id")
 	budgetID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	authUser, ok := ctl.GetAuthUser(c)
@@ -404,7 +404,7 @@ func (ctl *TaskController) GetPayments(c *gin.Context) {
 	idStr := c.Param("id")
 	taskID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 	authUser, ok := ctl.GetAuthUser(c)

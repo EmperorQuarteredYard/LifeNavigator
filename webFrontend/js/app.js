@@ -57,8 +57,24 @@ const App = {
     
     getAuthLayout() {
         return `
-            <div id="page-login" class="page auth-page"></div>
-            <div id="page-register" class="page auth-page"></div>
+            <div id="page-login" class="page auth-page active">
+                <div class="auth-container">
+                    <div class="auth-header">
+                        <h1>LifeNavigator</h1>
+                        <p>生活导航器 - 登录</p>
+                    </div>
+                    <div id="login-form-container"></div>
+                </div>
+            </div>
+            <div id="page-register" class="page auth-page">
+                <div class="auth-container">
+                    <div class="auth-header">
+                        <h1>LifeNavigator</h1>
+                        <p>生活导航器 - 注册</p>
+                    </div>
+                    <div id="register-form-container"></div>
+                </div>
+            </div>
         `;
     },
     

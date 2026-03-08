@@ -28,3 +28,11 @@ func Code(c *gin.Context, code int) {
 		Data:    nil,
 	})
 }
+
+func HandleCode(c *gin.Context, httpStatus, code int) {
+	c.JSON(httpStatus, Response{
+		Code:    code,
+		Message: errcode.CodeMsg(code),
+		Data:    nil,
+	})
+}

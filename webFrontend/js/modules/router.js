@@ -13,8 +13,6 @@ const Router = {
                 this.handleUrlChange();
             }
         });
-        
-        this.handleUrlChange();
     },
     
     handleUrlChange() {

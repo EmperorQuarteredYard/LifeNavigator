@@ -44,13 +44,13 @@ func (ctl *UserController) Register(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserInfoIncomplete):
-			ctl.Code(c, errcode.StatusInvalidParams)
+			ctl.HandleCode(c, errcode.StatusInvalidParams)
 		case errors.Is(err, service.ErrUserNameExists):
-			ctl.Code(c, errcode.StatusRegisterNameExist)
+			ctl.HandleCode(c, errcode.StatusRegisterNameExist)
 		case errors.Is(err, service.ErrInviteCodeNotFound):
-			ctl.Code(c, errcode.StatusInviteCodeNotFound)
+			ctl.HandleCode(c, errcode.StatusInviteCodeNotFound)
 		case errors.Is(err, service.ErrInviteCodeUsed): // 需要处理仓储层返回的错误
-			ctl.Code(c, errcode.StatusInviteCodeUsed)
+			ctl.HandleCode(c, errcode.StatusInviteCodeUsed)
 		default:
 			ctl.ServerError(c)
 		}
@@ -81,18 +81,18 @@ func (ctl *UserController) Login(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserNotFound):
-			ctl.Code(c, errcode.StatusUserNotFound)
+			ctl.HandleCode(c, errcode.StatusUserNotFound)
 		case errors.Is(err, service.ErrPasswordWrong):
-			ctl.Code(c, errcode.StatusLoginNameOrPasswordWrong)
+			ctl.HandleCode(c, errcode.StatusLoginNameOrPasswordWrong)
 		default:
-			ctl.Code(c, errcode.StatusServerError)
+			ctl.HandleCode(c, errcode.StatusServerError)
 		}
 		return
 	}
 
 	accessToken, refreshToken, err := jwt.GenerateToken(user.ID, user.Role)
 	if err != nil {
-		ctl.Code(c, errcode.StatusServerError)
+		ctl.HandleCode(c, errcode.StatusServerError)
 		return
 	}
 
@@ -114,7 +114,7 @@ func (ctl *UserController) GetUser(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
+		ctl.HandleCode(c, errcode.StatusInvalidParams)
 		return
 	}
 
@@ -122,9 +122,9 @@ func (ctl *UserController) GetUser(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserNotFound):
-			ctl.Code(c, errcode.StatusUserNotFound)
+			ctl.HandleCode(c, errcode.StatusUserNotFound)
 		default:
-			ctl.Code(c, errcode.StatusServerError)
+			ctl.HandleCode(c, errcode.StatusServerError)
 		}
 		return
 	}
@@ -149,9 +149,9 @@ func (ctl *UserController) Profile(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrUserNotFound):
-			ctl.Code(c, errcode.StatusUserNotFound)
+			ctl.HandleCode(c, errcode.StatusUserNotFound)
 		default:
-			ctl.Code(c, errcode.StatusServerError)
+			ctl.HandleCode(c, errcode.StatusServerError)
 		}
 		return
 	}
@@ -176,11 +176,11 @@ func (ctl *UserController) Refresh(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidToken):
-			ctl.Code(c, errcode.StatusInvalidToken)
+			ctl.HandleCode(c, errcode.StatusInvalidToken)
 		case errors.Is(err, service.ErrUserNotFound):
-			ctl.Code(c, errcode.StatusUserNotFound)
+			ctl.HandleCode(c, errcode.StatusUserNotFound)
 		default:
-			ctl.Code(c, errcode.StatusServerError)
+			ctl.HandleCode(c, errcode.StatusServerError)
 		}
 		return
 	}

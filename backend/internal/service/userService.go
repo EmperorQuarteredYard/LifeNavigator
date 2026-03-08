@@ -57,6 +57,7 @@ func (s *userService) Register(user *models.User) error {
 
 func (s *userService) Login(username, password string) (*models.User, error) {
 	user, err := s.userRepo.GetByUsername(username)
+	log.Println("用户登录:" + username + "/" + password)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrUserNotFound

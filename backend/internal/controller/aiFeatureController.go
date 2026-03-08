@@ -69,11 +69,17 @@ func (ctl *AIFeatureController) ReduceProject(c *gin.Context) {
 			continue
 		}
 
-		fmt.Fprintf(c.Writer, "data: %s\n\n", string(eventData))
+		if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", string(eventData)); err != nil {
+			log.Printf("Client disconnected during ReduceProject: %v", err)
+			return
+		}
 		c.Writer.Flush()
 	}
 
-	fmt.Fprintf(c.Writer, "data: %s\n\n", service.StreamEndMarker)
+	if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", service.StreamEndMarker); err != nil {
+		log.Printf("Failed to write stream end marker: %v", err)
+		return
+	}
 	c.Writer.Flush()
 }
 
@@ -108,13 +114,13 @@ func (ctl *AIFeatureController) Summary(c *gin.Context) {
 
 	startTime, err := time.Parse(time.RFC3339, req.StartTime)
 	if err != nil {
-		ctl.Code(c, 400)
+		ctl.HandleCode(c, 400)
 		return
 	}
 
 	endTime, err := time.Parse(time.RFC3339, req.EndTime)
 	if err != nil {
-		ctl.Code(c, 400)
+		ctl.HandleCode(c, 400)
 		return
 	}
 
@@ -148,7 +154,10 @@ func (ctl *AIFeatureController) Summary(c *gin.Context) {
 			continue
 		}
 
-		fmt.Fprintf(c.Writer, "data: %s\n\n", string(eventData))
+		if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", string(eventData)); err != nil {
+			log.Printf("Client disconnected during Summary: %v", err)
+			return
+		}
 		c.Writer.Flush()
 	}
 
@@ -165,7 +174,10 @@ func (ctl *AIFeatureController) Summary(c *gin.Context) {
 		}
 	}()
 
-	fmt.Fprintf(c.Writer, "data: %s\n\n", service.StreamEndMarker)
+	if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", service.StreamEndMarker); err != nil {
+		log.Printf("Failed to write stream end marker: %v", err)
+		return
+	}
 	c.Writer.Flush()
 }
 
