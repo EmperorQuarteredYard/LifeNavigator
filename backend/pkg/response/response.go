@@ -22,7 +22,7 @@ func Success(c *gin.Context, data interface{}) {
 }
 
 func Code(c *gin.Context, code int) {
-	c.JSON(http.StatusOK, Response{
+	c.JSON(errcode.CodeHttpStatus(code), Response{
 		Code:    code,
 		Message: errcode.CodeMsg(code),
 		Data:    nil,

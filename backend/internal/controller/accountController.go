@@ -54,7 +54,7 @@ func (ctl *AccountController) DeleteAccount(c *gin.Context) {
 	idStr := c.Param("id")
 	accountID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
 	authUser, ok := ctl.GetAuthUser(c)
@@ -82,7 +82,7 @@ func (ctl *AccountController) AdjustBalance(c *gin.Context) {
 	idStr := c.Param("id")
 	accountID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
 	var req dto.AdjustBalanceRequest
@@ -108,7 +108,7 @@ func (ctl *AccountController) GetAccount(c *gin.Context) {
 	idStr := c.Param("id")
 	accountID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
 	authUser, ok := ctl.GetAuthUser(c)
@@ -146,7 +146,7 @@ func (ctl *AccountController) ListLinkedTasks(c *gin.Context) {
 	idStr := c.Param("id")
 	accountID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
 	authUser, ok := ctl.GetAuthUser(c)
@@ -157,7 +157,7 @@ func (ctl *AccountController) ListLinkedTasks(c *gin.Context) {
 	// 解析时间参数
 	startTime, endTime, err := ctl.parseTimeRange(c)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
 
@@ -179,7 +179,7 @@ func (ctl *AccountController) ListLinkedPayments(c *gin.Context) {
 	idStr := c.Param("id")
 	accountID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
 	authUser, ok := ctl.GetAuthUser(c)
@@ -189,7 +189,7 @@ func (ctl *AccountController) ListLinkedPayments(c *gin.Context) {
 
 	startTime, endTime, err := ctl.parseTimeRange(c)
 	if err != nil {
-		ctl.HandleCode(c, errcode.StatusInvalidParams)
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
 

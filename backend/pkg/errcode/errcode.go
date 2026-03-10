@@ -1,5 +1,7 @@
 package errcode
 
+import "net/http"
+
 const (
 	// 成功
 	Success = 0
@@ -70,6 +72,30 @@ var codeMsgMap = map[int]string{
 	StatusTaskNotFound:             "任务不存在",
 	StatusBudgetNotFound:           "预算项不存在",
 }
+var codeToHttpStatus = map[int]int{
+	Success:                        http.StatusOK,
+	StatusInvalidToken:             http.StatusUnauthorized,
+	StatusMissedToken:              http.StatusUnauthorized,
+	StatusUserNotAuthenticated:     http.StatusUnauthorized,
+	StatusInvalidUserData:          http.StatusBadRequest,
+	StatusInsufficientPermissions:  http.StatusForbidden,
+	StatusInvalidParams:            http.StatusBadRequest,
+	StatusUnauthorized:             http.StatusUnauthorized,
+	StatusNotFound:                 http.StatusNotFound,
+	StatusDuplicate:                http.StatusConflict,
+	StatusInsufficientPerm:         http.StatusForbidden,
+	StatusRegisterNameExist:        http.StatusConflict,
+	StatusLoginNameOrPasswordWrong: http.StatusUnauthorized,
+	StatusUserNotFound:             http.StatusNotFound,
+	StatusInviteCodeNotFound:       http.StatusNotFound,
+	StatusInviteCodeUsed:           http.StatusBadRequest,
+	StatusProjectNotFound:          http.StatusNotFound,
+	StatusTaskNotFound:             http.StatusNotFound,
+	StatusBudgetNotFound:           http.StatusNotFound,
+	StatusPrerequisiteNotFound:     http.StatusNotFound,
+	StatusServerError:              http.StatusInternalServerError,
+	StatusDatabaseError:            http.StatusInternalServerError,
+}
 
 // CodeMsg 根据错误码返回对应的描述信息，若未找到则返回“未知错误”
 func CodeMsg(code int) string {
@@ -78,4 +104,12 @@ func CodeMsg(code int) string {
 		return msg
 	}
 	return "未知错误"
+}
+
+func CodeHttpStatus(code int) int {
+	sta, ok := codeToHttpStatus[code]
+	if ok {
+		return sta
+	}
+	return http.StatusInternalServerError
 }

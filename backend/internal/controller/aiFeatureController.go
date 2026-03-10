@@ -114,13 +114,13 @@ func (ctl *AIFeatureController) Summary(c *gin.Context) {
 
 	startTime, err := time.Parse(time.RFC3339, req.StartTime)
 	if err != nil {
-		ctl.HandleCode(c, 400)
+		ctl.Code(c, 400)
 		return
 	}
 
 	endTime, err := time.Parse(time.RFC3339, req.EndTime)
 	if err != nil {
-		ctl.HandleCode(c, 400)
+		ctl.Code(c, 400)
 		return
 	}
 
