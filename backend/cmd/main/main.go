@@ -2,13 +2,14 @@ package main
 
 import (
 	"LifeNavigator/internal/controller"
-	"LifeNavigator/internal/database"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/internal/router"
 	"LifeNavigator/internal/service"
 	"LifeNavigator/pkg/roles"
 	"log"
+
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -16,7 +17,8 @@ func main() {
 }
 
 func ServeByRealDatabase() {
-	db := database.GetDatabase()
+	//db := database.GetDatabase()
+	db := &gorm.DB{}
 	if db == nil {
 		log.Println("failed to connect to database")
 		log.Fatal("failed to connect to database")
