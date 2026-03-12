@@ -43,6 +43,42 @@ func NewProjectService(
 	}
 }
 
+// TODO 这里刷新的逻辑根本不对，应当当设置一个定时器来查询是否需要更新
+func (s *projectService) checkIfNeedRefreshBudget(tx repository.TxRepositories, projectID, currentUserID uint64) (bool, error) {
+	project, err := s.projectRepo.GetByUserID(currentUserID, projectID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return false, ErrForbidden
+		}
+		log.Printf("failed to get project %d: %v", projectID, err)
+		return false, ErrInternal
+	}
+	budgets, err := tx.ProjectBudget.GetByProjectID(projectID)
+	if err != nil {
+		log.Println(err)
+		return false, ErrInternal
+	}
+	if !models.ShouldRefresh(project.RefreshInterval, project.LastRefresh) {
+		return false, nil
+	}
+	for _, budget := range budgets {
+		_, err = tx.Account.AdjustNetBalance(currentUserID, budget.AccountID, -1*budget.Used)
+		if err != nil {
+			log.Print("fail to auto refresh budget of project %d ,account %d :%v\n", projectID, budget.AccountID, err)
+			return false, ErrInternal
+		}
+		err = tx.ProjectBudget.SetUsedZero(budget.ID, budget.ProjectID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return false, ErrBudgetNotFound
+			}
+			log.Printf("fail to auto refresh budget of project %d ,account %d :%v\n", projectID, budget.AccountID, err)
+			return false, ErrInternal
+		}
+	}
+	return true, nil
+}
+
 func (s *projectService) checkProjectOwnership(projectID uint64, currentUserID uint64) (*models.Project, error) {
 	project, err := s.projectRepo.GetByUserID(currentUserID, projectID)
 	if err != nil {
@@ -118,7 +154,7 @@ func (s *projectService) Delete(id uint64, currentUserID uint64) error {
 				log.Printf("failed to delete project %d: %v", budget.ID, err)
 				return ErrInternal
 			}
-			_, err = txRepo.Account.AdjustNetBalance(currentUserID, budget.AccountID, -1*budget.Budget)
+			_, err = txRepo.Account.AdjustNetBalance(currentUserID, budget.AccountID, budget.Budget)
 			if err != nil {
 				log.Printf("failed to update project %d: %v", budget.ID, err)
 				return ErrInternal
@@ -163,7 +199,7 @@ func (s *projectService) AddBudget(projectID uint64, budget *models.ProjectBudge
 			return ErrInternal
 		}
 		if budget.AccountID != 0 {
-			if _, err = txRepo.Account.AdjustNetBalance(currentUserID, budget.AccountID, budget.Budget); err != nil {
+			if _, err = txRepo.Account.AdjustNetBalance(currentUserID, budget.AccountID, -1*budget.Budget); err != nil {
 				log.Printf("failed to create project budget: %v", err)
 				return ErrInternal
 			}
@@ -210,7 +246,7 @@ func (s *projectService) UpdateBudget(budget *models.ProjectBudget, currentUserI
 				}
 			}
 			if budget.AccountID != 0 {
-				_, err = txRepo.Account.AdjustNetBalance(currentUserID, budget.AccountID, budget.Budget)
+				_, err = txRepo.Account.AdjustNetBalance(currentUserID, budget.AccountID, -1*budget.Budget)
 				if err != nil {
 					if errors.Is(err, repository.ErrNotFound) {
 						return ErrBudgetNotFound
@@ -220,7 +256,7 @@ func (s *projectService) UpdateBudget(budget *models.ProjectBudget, currentUserI
 				}
 			}
 		} else if budget.Budget != oldBudget.Budget && budget.AccountID != 0 { //否则，当改变了预算额时
-			_, err = txRepo.Account.AdjustNetBalance(currentUserID, oldBudget.AccountID, budget.Budget-oldBudget.Budget)
+			_, err = txRepo.Account.AdjustNetBalance(currentUserID, oldBudget.AccountID, oldBudget.Budget-budget.Budget)
 			if err != nil {
 				if errors.Is(err, repository.ErrNotFound) {
 					return ErrBudgetNotFound

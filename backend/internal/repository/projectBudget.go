@@ -19,6 +19,7 @@ type ProjectBudgetRepository interface {
 	SubtractUsed(budgetID uint64, amount float64) error              // 原子减少预算已用金额（不检查负数）
 	GetByAccountID(accountID uint64) ([]models.ProjectBudget, error) // 查询指定账户关联的所有项目预算
 	UpdateAccountID(budgetID uint64, accountID uint64) error         // 更新指定预算的账户 ID
+	SetUsedZero(budgetID, projectID uint64) error                    //注意这里没有做事务检查
 }
 
 // NewProjectBudgetRepository 创建一个 ProjectBudgetRepository 实例
@@ -28,6 +29,17 @@ func NewProjectBudgetRepository(db *gorm.DB) ProjectBudgetRepository {
 
 type projectBudgetRepository struct {
 	db *gorm.DB
+}
+
+func (r *projectBudgetRepository) SetUsedZero(budgetID, projectID uint64) error {
+	err := r.db.Model(&models.ProjectBudget{}).Where("project_id = ? and id = ?", projectID, budgetID).Update("used", 0).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrNotFound
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *projectBudgetRepository) AddUsed(budgetID uint64, amount float64) error {
