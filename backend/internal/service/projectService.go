@@ -107,10 +107,22 @@ func (s *projectService) Delete(id uint64, currentUserID uint64) error {
 			return ErrForbidden
 		}
 
-		// 删除项目预算
-		if err := txRepo.ProjectBudget.DeleteByProjectID(id); err != nil {
-			log.Printf("failed to delete project budgets: %v", err)
-			return ErrInternal
+		// 删除项目预算并返还未使用的
+		var budgets []models.ProjectBudget
+		if budgets, err = txRepo.ProjectBudget.GetByProjectID(id); err != nil {
+			return ErrProjectBudgetNotFound
+		}
+		for _, budget := range budgets {
+			err = txRepo.ProjectBudget.Delete(budget.ID)
+			if err != nil {
+				log.Printf("failed to delete project %d: %v", budget.ID, err)
+				return ErrInternal
+			}
+			_, err = txRepo.Account.AdjustNetBalance(currentUserID, budget.AccountID, -1*budget.Budget)
+			if err != nil {
+				log.Printf("failed to update project %d: %v", budget.ID, err)
+				return ErrInternal
+			}
 		}
 
 		// 获取项目下所有任务
@@ -140,64 +152,133 @@ func (s *projectService) Delete(id uint64, currentUserID uint64) error {
 
 func (s *projectService) AddBudget(projectID uint64, budget *models.ProjectBudget, currentUserID uint64) error {
 	// 检查项目所有权
-	_, err := s.checkProjectOwnership(projectID, currentUserID)
-	if err != nil {
-		return err
-	}
-	budget.ProjectID = projectID
-	if err := s.projectBudgetRepo.Create(budget); err != nil {
-		log.Printf("failed to create project budget: %v", err)
-		return ErrInternal
-	}
-	return nil
+	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+		_, err := s.checkProjectOwnership(projectID, currentUserID)
+		if err != nil {
+			return err
+		}
+		budget.ProjectID = projectID
+		if err := txRepo.ProjectBudget.Create(budget); err != nil {
+			log.Printf("failed to create project budget: %v", err)
+			return ErrInternal
+		}
+		if budget.AccountID != 0 {
+			if _, err = txRepo.Account.AdjustNetBalance(currentUserID, budget.AccountID, budget.Budget); err != nil {
+				log.Printf("failed to create project budget: %v", err)
+				return ErrInternal
+			}
+		}
+		return nil
+	})
 }
 
 func (s *projectService) UpdateBudget(budget *models.ProjectBudget, currentUserID uint64) error {
-	// 获取预算对应的项目ID
-	existing, err := s.projectBudgetRepo.GetByID(budget.ID)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return ErrBudgetNotFound
+	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+		// 获取预算对应的项目 ID
+		existing, err := txRepo.ProjectBudget.GetByID(budget.ID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrBudgetNotFound
+			}
+			log.Printf("failed to get budget %d: %v", budget.ID, err)
+			return ErrInternal
 		}
-		log.Printf("failed to get budget %d: %v", budget.ID, err)
-		return ErrInternal
-	}
-	// 检查项目所有权
-	_, err = s.checkProjectOwnership(existing.ProjectID, currentUserID)
-	if err != nil {
-		return err
-	}
-	if err := s.projectBudgetRepo.Update(budget); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return ErrBudgetNotFound
+		// 检查项目所有权
+		_, err = s.checkProjectOwnership(existing.ProjectID, currentUserID)
+		if err != nil {
+			return err
 		}
-		log.Printf("failed to update project budget %d: %v", budget.ID, err)
-		return ErrInternal
-	}
-	return nil
+		//正式开始事务
+		var oldBudget *models.ProjectBudget
+		if oldBudget, err = txRepo.ProjectBudget.GetByID(budget.ID); err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrBudgetNotFound
+			}
+			log.Printf("failed to get budget %d: %v", budget.ID, err)
+			return ErrInternal
+		}
+		//当改变了账户时
+		if budget.AccountID != oldBudget.AccountID {
+			if oldBudget.AccountID != 0 {
+				_, err = txRepo.Account.AdjustNetBalance(currentUserID, oldBudget.AccountID, oldBudget.Budget)
+				if err != nil {
+					if errors.Is(err, repository.ErrNotFound) {
+						return ErrBudgetNotFound
+					}
+					log.Printf("failed to update project budget: %v", err)
+					return ErrInternal
+				}
+			}
+			if budget.AccountID != 0 {
+				_, err = txRepo.Account.AdjustNetBalance(currentUserID, budget.AccountID, budget.Budget)
+				if err != nil {
+					if errors.Is(err, repository.ErrNotFound) {
+						return ErrBudgetNotFound
+					}
+					log.Printf("failed to update project budget: %v", err)
+					return ErrInternal
+				}
+			}
+		} else if budget.Budget != oldBudget.Budget && budget.AccountID != 0 { //否则，当改变了预算额时
+			_, err = txRepo.Account.AdjustNetBalance(currentUserID, oldBudget.AccountID, budget.Budget-oldBudget.Budget)
+			if err != nil {
+				if errors.Is(err, repository.ErrNotFound) {
+					return ErrBudgetNotFound
+				}
+				log.Printf("failed to update project budget: %v", err)
+				return ErrInternal
+			}
+		}
+		if err = txRepo.ProjectBudget.Update(budget); err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrBudgetNotFound
+			}
+			log.Printf("failed to update project budget %d: %v", budget.ID, err)
+			return ErrInternal
+		}
+		return nil
+
+	})
 }
 
 func (s *projectService) DeleteBudget(budgetID uint64, currentUserID uint64) error {
-	// 获取预算对应的项目ID
-	existing, err := s.projectBudgetRepo.GetByID(budgetID)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return ErrBudgetNotFound
+	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error { // 获取预算对应的项目ID
+		existing, err := txRepo.ProjectBudget.GetByID(budgetID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrBudgetNotFound
+			}
+			log.Printf("failed to get budget %d: %v", budgetID, err)
+			return ErrInternal
 		}
-		log.Printf("failed to get budget %d: %v", budgetID, err)
-		return ErrInternal
-	}
-	// 检查项目所有权
-	_, err = s.checkProjectOwnership(existing.ProjectID, currentUserID)
-	if err != nil {
-		return err
-	}
-	if err := s.projectBudgetRepo.Delete(budgetID); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return ErrBudgetNotFound
+		// 检查项目所有权
+		_, err = s.checkProjectOwnership(existing.ProjectID, currentUserID)
+		if err != nil {
+			return err
 		}
-		log.Printf("failed to delete project budget %d: %v", budgetID, err)
-		return ErrInternal
-	}
-	return nil
+		budget, err := txRepo.ProjectBudget.GetByID(budgetID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrBudgetNotFound
+			}
+			log.Printf("failed to get budget %d: %v", budgetID, err)
+			return ErrInternal
+		}
+		if _, err = txRepo.Account.AdjustNetBalance(currentUserID, budget.AccountID, budget.Budget); err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrBudgetNotFound
+			}
+			log.Printf("failed to update project budget: %v", err)
+			return ErrInternal
+		}
+		if err = txRepo.ProjectBudget.Delete(budgetID); err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrBudgetNotFound
+			}
+			log.Printf("failed to delete project budget %d: %v", budgetID, err)
+			return ErrInternal
+		}
+		return nil
+	})
+
 }

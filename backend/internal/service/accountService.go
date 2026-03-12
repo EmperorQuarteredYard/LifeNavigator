@@ -10,13 +10,13 @@ import (
 )
 
 type AccountService interface {
-	CreateAccount(*models.Account) (*models.Account, error)
-	DeleteAccount(*models.Account) error
-	AdjustBalance(userID, accountID uint64, amount float64) (float64, error)
-	GetByAccountID(userID, accountID uint64) (*models.Account, error)
-	ListByUserID(userID uint64) ([]models.Account, error)
-	ListLinkedTask(userID, accountID uint64, startTime, endTime time.Time) ([]models.Task, []models.TaskPayment, error)
-	ListLinkedTaskPayment(userID, accountID uint64, startTime, endTime time.Time) ([]models.TaskPayment, error)
+	CreateAccount(*models.Account) (*models.Account, error)                                                             //创建账户
+	DeleteAccount(*models.Account) error                                                                                //更新账户
+	AdjustBalance(userID, accountID uint64, amount float64) (float64, error)                                            //同时调整Balance,NetBalance字段
+	GetByAccountID(userID, accountID uint64) (*models.Account, error)                                                   //通过 ID获取单个账户信息
+	ListByUserID(userID uint64) ([]models.Account, error)                                                               //列出一个用户拥有的所有账户
+	ListLinkedTask(userID, accountID uint64, startTime, endTime time.Time) ([]models.Task, []models.TaskPayment, error) //列出关联的所有任务
+	ListLinkedTaskPayment(userID, accountID uint64, startTime, endTime time.Time) ([]models.TaskPayment, error)         //列出关联的所有账单
 }
 
 func NewAccountService(

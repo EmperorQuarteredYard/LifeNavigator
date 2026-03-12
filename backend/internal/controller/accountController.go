@@ -24,7 +24,6 @@ func NewAccountController(accountServ service.AccountService) *AccountController
 }
 
 // CreateAccount 创建账户
-// POST /accounts
 func (ctl *AccountController) CreateAccount(c *gin.Context) {
 	var req dto.CreateAccountRequest
 	if !ctl.BindJSON(c, &req) {
@@ -49,7 +48,6 @@ func (ctl *AccountController) CreateAccount(c *gin.Context) {
 }
 
 // DeleteAccount 删除账户
-// DELETE /accounts/:id
 func (ctl *AccountController) DeleteAccount(c *gin.Context) {
 	idStr := c.Param("id")
 	accountID, err := strconv.ParseUint(idStr, 10, 64)
@@ -77,7 +75,6 @@ func (ctl *AccountController) DeleteAccount(c *gin.Context) {
 }
 
 // AdjustBalance 调整账户余额
-// POST /accounts/:id/balance
 func (ctl *AccountController) AdjustBalance(c *gin.Context) {
 	idStr := c.Param("id")
 	accountID, err := strconv.ParseUint(idStr, 10, 64)
@@ -103,7 +100,6 @@ func (ctl *AccountController) AdjustBalance(c *gin.Context) {
 }
 
 // GetAccount 获取单个账户详情
-// GET /accounts/:id
 func (ctl *AccountController) GetAccount(c *gin.Context) {
 	idStr := c.Param("id")
 	accountID, err := strconv.ParseUint(idStr, 10, 64)
@@ -121,11 +117,18 @@ func (ctl *AccountController) GetAccount(c *gin.Context) {
 		ctl.Error(c, err)
 		return
 	}
-	ctl.Success(c, account)
+	var res = dto.AccountModel{
+		ID:         account.ID,
+		UserID:     account.UserID,
+		Name:       account.Name,
+		Type:       account.Type,
+		Balance:    account.Balance,
+		NetBalance: account.NetBalance,
+	}
+	ctl.Success(c, res)
 }
 
 // ListAccounts 获取当前用户的所有账户
-// GET /accounts
 func (ctl *AccountController) ListAccounts(c *gin.Context) {
 	authUser, ok := ctl.GetAuthUser(c)
 	if !ok {
@@ -133,15 +136,25 @@ func (ctl *AccountController) ListAccounts(c *gin.Context) {
 	}
 
 	accounts, err := ctl.accountServ.ListByUserID(authUser.UserID)
+	var result []dto.AccountModel
+	for _, account := range accounts {
+		result = append(result, dto.AccountModel{
+			ID:         account.ID,
+			UserID:     account.UserID,
+			Name:       account.Name,
+			Type:       account.Type,
+			Balance:    account.Balance,
+			NetBalance: account.NetBalance,
+		})
+	}
 	if err != nil {
 		ctl.Error(c, err)
 		return
 	}
-	ctl.Success(c, accounts)
+	ctl.Success(c, result)
 }
 
 // ListLinkedTasks 获取与账户关联的任务及付款
-// GET /accounts/:id/tasks?start_time=...&end_time=...
 func (ctl *AccountController) ListLinkedTasks(c *gin.Context) {
 	idStr := c.Param("id")
 	accountID, err := strconv.ParseUint(idStr, 10, 64)
@@ -174,7 +187,6 @@ func (ctl *AccountController) ListLinkedTasks(c *gin.Context) {
 }
 
 // ListLinkedPayments 获取与账户关联的付款（不含任务详情）
-// GET /accounts/:id/payments?start_time=...&end_time=...
 func (ctl *AccountController) ListLinkedPayments(c *gin.Context) {
 	idStr := c.Param("id")
 	accountID, err := strconv.ParseUint(idStr, 10, 64)

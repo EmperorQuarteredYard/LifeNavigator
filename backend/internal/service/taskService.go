@@ -16,7 +16,7 @@ type TaskService interface {
 	ListByUserID(currentUserID uint64, offset, limit int) ([]models.Task, int64, error)                       //列举一个用户的所有任务
 	Update(task *models.Task, currentUserID uint64) error                                                     //更新任务
 	Delete(id uint64, currentUserID uint64) error                                                             //删除任务，并删除关联关系
-	GetByStatus(projectID uint64, status uint8, currentUserID uint64) ([]models.Task, error)
+	GetByStatus(projectID uint64, status uint8, currentUserID uint64) ([]models.Task, error)                  //这实现的个啥玩意
 	GetByDeadlineBefore(projectID uint64, deadline time.Time, page, pageSize int, currentUserID uint64) ([]models.Task, int64, error)
 	GetByDeadlineAfter(projectID uint64, deadline time.Time, page, pageSize int, currentUserID uint64) ([]models.Task, int64, error)
 	GetByTimePeriod(projectID uint64, start, end time.Time, page, pageSize int, currentUserID uint64) ([]models.Task, int64, error)

@@ -181,6 +181,8 @@ services:
   web:
     build:
       context: .
+    stdin_open: true   # 等价于 docker run -i
+    tty: true          # 等价于 docker run -t
     ports:
       - "5083:5083"               # 映射宿主机端口到容器端口（根据你的应用端口调整）
     environment:

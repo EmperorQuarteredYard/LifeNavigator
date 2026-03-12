@@ -12,8 +12,10 @@ type AccountRepository interface {
 	Create(*models.Account) (*models.Account, error)
 	Delete(*models.Account) error
 	AdjustBalance(userID, accountID uint64, amount float64) (float64, error)
+	AdjustNetBalance(userID, accountID uint64, amount float64) (float64, error)
 	GetByID(userID, accountID uint64) (*models.Account, error)
 	ListByUserID(userID uint64) ([]models.Account, error)
+	SetUpdateMaxTry(maxTry int)
 }
 
 func NewAccountRepository(db *gorm.DB) AccountRepository {
@@ -21,11 +23,15 @@ func NewAccountRepository(db *gorm.DB) AccountRepository {
 }
 
 type accountRepository struct {
-	db *gorm.DB
+	db           *gorm.DB
+	updateMaxTry int
 }
 
-func (a accountRepository) AdjustBalance(userID, accountID uint64, amount float64) (float64, error) {
-	var maxRetries = 3
+func (a accountRepository) SetUpdateMaxTry(maxTry int) {
+	a.updateMaxTry = maxTry
+}
+
+func (a accountRepository) AdjustNetBalance(userID, accountID uint64, amount float64) (float64, error) {
 	if amount == 0 {
 		account, err := a.GetByID(userID, accountID)
 		if err != nil {
@@ -34,7 +40,54 @@ func (a accountRepository) AdjustBalance(userID, accountID uint64, amount float6
 		return account.Balance, nil
 	}
 
-	for i := 0; i < maxRetries; i++ {
+	for i := 0; i < a.updateMaxTry; i++ {
+		account := &models.Account{}
+		err := a.db.Where("user_id = ? AND id = ?", userID, accountID).First(account).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return 0, ErrNotFound
+			}
+			return 0, err
+		}
+
+		newNetBalance := account.NetBalance + amount
+
+		result := a.db.Model(&models.Account{}).
+			Where("user_id = ? AND id = ? AND version = ?", userID, accountID, account.Version).
+			Updates(map[string]interface{}{
+				"net_balance": newNetBalance,
+				"version":     account.Version + 1,
+			})
+
+		if result.Error != nil {
+			return 0, result.Error
+		}
+
+		if result.RowsAffected == 0 {
+			if i == a.updateMaxTry-1 {
+				return 0, ErrConcurrentUpdate
+			}
+			time.Sleep(10 * time.Millisecond) // 短暂等待后重试
+			continue
+		}
+
+		return newNetBalance, nil
+	}
+
+	return 0, ErrConcurrentUpdate
+
+}
+
+func (a accountRepository) AdjustBalance(userID, accountID uint64, amount float64) (float64, error) {
+	if amount == 0 {
+		account, err := a.GetByID(userID, accountID)
+		if err != nil {
+			return 0, err
+		}
+		return account.Balance, nil
+	}
+
+	for i := 0; i < a.updateMaxTry; i++ {
 		account := &models.Account{}
 		err := a.db.Where("user_id = ? AND id = ?", userID, accountID).First(account).Error
 		if err != nil {
@@ -58,7 +111,7 @@ func (a accountRepository) AdjustBalance(userID, accountID uint64, amount float6
 		}
 
 		if result.RowsAffected == 0 {
-			if i == maxRetries-1 {
+			if i == a.updateMaxTry-1 {
 				return 0, ErrConcurrentUpdate
 			}
 			time.Sleep(10 * time.Millisecond) // 短暂等待后重试
