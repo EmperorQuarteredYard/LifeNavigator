@@ -4,7 +4,6 @@ import "time"
 
 type Task struct {
 	ID             uint64 `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	UserID         uint64 `json:"-" gorm:"index:idx_user_project"`
 	ProjectID      uint64 `json:"project_id" gorm:"index:idx_user_project"`
 	Name           string `json:"name"`
 	Description    string `json:"description"`

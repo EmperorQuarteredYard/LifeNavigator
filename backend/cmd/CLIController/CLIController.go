@@ -485,9 +485,9 @@ func (cli *CLIController) handleListTasks(args []string) {
 	var total int64
 	var err error
 	if projectID != 0 {
-		tasks, total, err = cli.taskService.ListByProjectID(projectID, 1, 100, cli.currentUserID)
+		tasks, total, err = cli.taskService.ListTaskByProjectID(projectID, 1, 100, cli.currentUserID)
 	} else {
-		tasks, total, err = cli.taskService.ListByUserID(cli.currentUserID, 0, 100)
+		tasks, total, err = cli.taskService.ListTaskByUserID(cli.currentUserID, 0, 100)
 	}
 	if err != nil {
 		fmt.Printf("Failed to list tasks: %v\n", err)
@@ -522,7 +522,7 @@ func (cli *CLIController) handleGetTask(args []string) {
 		fmt.Println("Invalid task ID")
 		return
 	}
-	task, err := cli.taskService.GetByID(taskID, cli.currentUserID)
+	task, err := cli.taskService.GetTaskByID(taskID, cli.currentUserID)
 	if err != nil {
 		fmt.Printf("Failed to get task: %v\n", err)
 		return
@@ -557,7 +557,7 @@ func (cli *CLIController) handleDeleteTask(args []string) {
 		fmt.Println("Deletion cancelled.")
 		return
 	}
-	err = cli.taskService.Delete(taskID, cli.currentUserID)
+	err = cli.taskService.DeleteTask(taskID, cli.currentUserID)
 	if err != nil {
 		fmt.Printf("Failed to delete task: %v\n", err)
 		return

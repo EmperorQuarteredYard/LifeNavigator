@@ -32,8 +32,7 @@ WORKDIR /root/
 # 从构建阶段复制二进制文件
 COPY --from=builder /app/my-app .
 
-# 声明端口（根据你的应用实际监听端口修改，例如 8080）
-EXPOSE 8080
+EXPOSE 5083
 
 # 运行应用
 CMD ["./my-app"]
