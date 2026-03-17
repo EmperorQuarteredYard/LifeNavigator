@@ -361,7 +361,7 @@ func (s *aiFeatureService) parseAndCreateEntities(ctx context.Context, userID ui
 		for _, budgetData := range aiResp.Budgets {
 			budget := &models.ProjectBudget{
 				ProjectID: project.ID,
-				Type:      budgetData.Type,
+				Unit:      budgetData.Type,
 				Budget:    budgetData.Budget,
 				Used:      0,
 			}
@@ -375,7 +375,7 @@ func (s *aiFeatureService) parseAndCreateEntities(ctx context.Context, userID ui
 				Content: map[string]interface{}{
 					"id":         budget.ID,
 					"project_id": budget.ProjectID,
-					"type":       budget.Type,
+					"type":       budget.Unit,
 					"budget":     budget.Budget,
 				},
 			}

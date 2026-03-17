@@ -1,4 +1,4 @@
-package models
+package refresh
 
 import "time"
 
@@ -11,6 +11,33 @@ const (
 	TypeRefreshHourly  = 5
 )
 
+const (
+	NameRefreshNever   = "Never"
+	NameRefreshYearly  = "Yearly"
+	NameRefreshMonthly = "Monthly"
+	NameRefreshWeekly  = "Weekly"
+	NameRefreshDaily   = "Daily"
+	NameRefreshHourly  = "Hourly"
+)
+
+var typeNameIndex = map[int]string{
+	TypeRefreshNever:   NameRefreshNever,
+	TypeRefreshYearly:  NameRefreshYearly,
+	TypeRefreshMonthly: NameRefreshMonthly,
+	TypeRefreshWeekly:  NameRefreshWeekly,
+	TypeRefreshDaily:   NameRefreshDaily,
+	TypeRefreshHourly:  NameRefreshHourly,
+}
+
+var nameTypeIndex = map[string]int{
+	NameRefreshNever:   TypeRefreshNever,
+	NameRefreshYearly:  TypeRefreshYearly,
+	NameRefreshMonthly: TypeRefreshMonthly,
+	NameRefreshWeekly:  TypeRefreshWeekly,
+	NameRefreshDaily:   TypeRefreshDaily,
+	NameRefreshHourly:  TypeRefreshHourly,
+}
+
 var timeZone *time.Location = time.FixedZone("CST", 8*3600) //默认采用东八区时间
 
 func SetTimeZone(timeZ int) {
@@ -20,12 +47,29 @@ func SetTimeZone(timeZ int) {
 	}
 	timeZone = time.FixedZone("CST", timeZ)
 }
-func CreateRefreshInterval(refreshGap, strategy int) uint32 {
+func ComposeRefreshInterval(refreshGap, strategy int) uint32 {
 	return uint32(refreshGap<<8 + strategy&0xFF)
 }
 
-func AnalysisRefreshInterval(refreshInterval uint32) (refreshGap int, strategy int) {
-	return int(refreshInterval >> 8), int(refreshInterval & 0xFF)
+func CreateRefreshInterval(refreshGap uint32, strategy string) uint32 {
+	Type, ok := nameTypeIndex[strategy]
+	if !ok {
+		return 0
+	}
+	return ComposeRefreshInterval(int(refreshGap), int(Type))
+}
+
+func ReduceRefreshInterval(refreshInterval uint32) (refreshGap uint32, strategy int) {
+	return refreshInterval >> 8, int(refreshInterval & 0xFF)
+}
+
+func AnalysisRefreshInterval(refreshInterval uint32) (uint32, string) {
+	Gap, Type := ReduceRefreshInterval(refreshInterval)
+	Strategy, ok := typeNameIndex[Type]
+	if !ok {
+		return 0, NameRefreshNever
+	}
+	return Gap, Strategy
 }
 
 // ShouldRefresh 认为一天的开始是UTC+8时间4:00，一周的开始为周一

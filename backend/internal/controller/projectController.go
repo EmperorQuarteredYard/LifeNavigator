@@ -162,7 +162,7 @@ func (ctl *ProjectController) AddBudget(c *gin.Context) {
 	budget := &models.ProjectBudget{
 		ProjectID: projectID,
 		AccountID: req.AccountID,
-		Type:      req.Type,
+		Unit:      req.Type,
 		Budget:    req.Budget,
 		Used:      req.Used,
 	}
@@ -194,7 +194,7 @@ func (ctl *ProjectController) UpdateBudget(c *gin.Context) {
 	budget := &models.ProjectBudget{
 		ID:        budgetID,
 		AccountID: req.AccountID,
-		Type:      req.Type,
+		Unit:      req.Type,
 		Budget:    req.Budget,
 		Used:      req.Used,
 	}

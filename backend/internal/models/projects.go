@@ -8,7 +8,6 @@ import (
 
 type Project struct {
 	ID        uint64         `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	UserID    uint64         `json:"user_id"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
@@ -21,4 +20,5 @@ type Project struct {
 
 	// 关联的项目预算
 	Budgets []ProjectBudget `gorm:"foreignKey:ProjectID" json:"budgets"`
+	Users   []User          `gorm:"many2many:account_users;"`
 }

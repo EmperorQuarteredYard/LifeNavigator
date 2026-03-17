@@ -48,7 +48,7 @@ func NewCLIController(
 
 // Run 启动交互式命令行
 func (cli *CLIController) Run() {
-	fmt.Println("CLI started. Type 'help' for commands.")
+	fmt.Println("CLI started. Unit 'help' for commands.")
 	for {
 		fmt.Print("> ")
 		input, err := cli.reader.ReadString('\n')
@@ -331,7 +331,7 @@ func (cli *CLIController) handleListAccounts(args []string) {
 	}
 	fmt.Println("Accounts:")
 	for _, acc := range accounts {
-		fmt.Printf("  ID: %d, Type: %s, Balance: %.2f\n", acc.ID, acc.Type, acc.Balance)
+		fmt.Printf("  ID: %d, Unit: %s, Balance: %.2f\n", acc.ID, acc.Type, acc.Balance)
 	}
 }
 
@@ -354,7 +354,7 @@ func (cli *CLIController) handleGetAccount(args []string) {
 		fmt.Printf("Failed to get account: %v\n", err)
 		return
 	}
-	fmt.Printf("Account ID: %d\nType: %s\nBalance: %.2f\n", account.ID, account.Type, account.Balance)
+	fmt.Printf("Account ID: %d\nUnit: %s\nBalance: %.2f\n", account.ID, account.Type, account.Balance)
 }
 
 // handleDeleteAccount 删除指定账户
@@ -378,7 +378,7 @@ func (cli *CLIController) handleDeleteAccount(args []string) {
 		return
 	}
 	// 确认
-	fmt.Printf("Are you sure you want to delete account %d (Type: %s)? (yes/no): ", account.ID, account.Type)
+	fmt.Printf("Are you sure you want to delete account %d (Unit: %s)? (yes/no): ", account.ID, account.Type)
 	confirm, _ := cli.reader.ReadString('\n')
 	confirm = strings.TrimSpace(confirm)
 	if confirm != "yes" {

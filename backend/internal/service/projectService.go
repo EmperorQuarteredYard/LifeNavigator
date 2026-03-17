@@ -3,6 +3,7 @@ package service
 import (
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
+	"LifeNavigator/pkg/refresh"
 	"context"
 	"errors"
 	"log"
@@ -58,7 +59,7 @@ func (s *projectService) checkIfNeedRefreshBudget(tx repository.TxRepositories, 
 		log.Println(err)
 		return false, ErrInternal
 	}
-	if !models.ShouldRefresh(project.RefreshInterval, project.LastRefresh) {
+	if !refresh.ShouldRefresh(project.RefreshInterval, project.LastRefresh) {
 		return false, nil
 	}
 	for _, budget := range budgets {

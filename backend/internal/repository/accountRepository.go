@@ -148,7 +148,7 @@ func (a accountRepository) ListByUserID(userID uint64) ([]models.Account, error)
 }
 
 // Create 创建新账户
-// 注意：传入的 account 对象中应包含必要字段（如 UserID, Type, Balance 等）
+// 注意：传入的 account 对象中应包含必要字段（如 UserID, Unit, Balance 等）
 // 创建后，account 的 ID 和 Version 会被自动填充（ID自增，Version默认0）
 func (a accountRepository) Create(account *models.Account) (*models.Account, error) {
 	// 可在此添加业务校验（如检查必填字段）

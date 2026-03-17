@@ -43,7 +43,7 @@ func (ctl *AIFeatureController) ReduceProject(c *gin.Context) {
 		return
 	}
 
-	c.Header("Content-Type", "text/event-stream")
+	c.Header("Content-Unit", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("Access-Control-Allow-Origin", "*")
@@ -124,7 +124,7 @@ func (ctl *AIFeatureController) Summary(c *gin.Context) {
 		return
 	}
 
-	c.Header("Content-Type", "text/event-stream")
+	c.Header("Content-Unit", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("Access-Control-Allow-Origin", "*")

@@ -20,4 +20,7 @@ type User struct {
 	Email    string `json:"email"`
 	Phone    string `json:"phone"`
 	Profile  string `json:"profile" gorm:"type:varchar(2000);default:''"` // 用户画像，最大2000字符
+
+	Accounts []Account `gorm:"many2many:account_users;"`
+	Projects []Project `gorm:"many2many:project_users;"`
 }

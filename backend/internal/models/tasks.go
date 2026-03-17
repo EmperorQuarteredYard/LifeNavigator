@@ -3,14 +3,12 @@ package models
 import "time"
 
 type Task struct {
-	ID             uint64 `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	UserID         uint64 `json:"-" gorm:"index:idx_user_project"`
-	ProjectID      uint64 `json:"project_id" gorm:"index:idx_user_project"`
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	AutoCalculated bool   `json:"auto_calculated" gorm:"default:false"`
-	Type           uint8  `json:"type"`
-	Status         uint8  `json:"status"`
+	ID          uint64 `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	ProjectID   uint64 `json:"project_id" gorm:"index:idx_user_project"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Type        uint8  `json:"type"`
+	Status      uint8  `json:"status"`
 
 	Category    string     `gorm:"column:category;type:varchar(50)" json:"category"`
 	Deadline    *time.Time `json:"deadline,omitempty"`
