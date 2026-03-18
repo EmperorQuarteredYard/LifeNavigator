@@ -77,8 +77,9 @@ func GetDatabase() *gorm.DB {
 			&models.TaskPayment{},
 			&models.TaskDependency{},
 			&models.Account{},
+			&models.Kanban{},
+			&models.KanbanProject{},
 		)
-
 		if err != nil {
 			fmt.Println("Fail to migrate model\nreason:", err)
 		} else {

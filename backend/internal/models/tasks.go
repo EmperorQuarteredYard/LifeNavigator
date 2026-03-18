@@ -15,6 +15,7 @@ type Task struct {
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+	//TODO 这东西之后得改成支持嵌套的，但是...什么支付啦预算啦权限(还没做，好一点)又得大改
 }
 type TaskDependency struct {
 	UserID         uint64    `json:"user_id" gorm:"not null"`

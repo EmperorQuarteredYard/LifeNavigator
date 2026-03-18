@@ -44,7 +44,7 @@ func (s *userService) Register(user *models.User) error {
 		return ErrInternal
 	}
 	user.Password = string(hashed)
-	user.Role = "user"
+	user.Role = "user" //TODO 这里之后要做成允许注册为管理员、开发者等
 	if err := s.userRepo.Create(user); err != nil {
 		if errors.Is(err, repository.ErrRecordExist) {
 			return ErrUserNameExists
