@@ -22,7 +22,6 @@ func NewProjectController(projectServ service.ProjectService) *ProjectController
 	}
 }
 
-// CreateProject 创建项目
 func (ctl *ProjectController) CreateProject(c *gin.Context) {
 	var req dto.CreateProjectRequest
 	if !ctl.BindJSON(c, &req) {
@@ -38,15 +37,14 @@ func (ctl *ProjectController) CreateProject(c *gin.Context) {
 		Description:     req.Description,
 		RefreshInterval: req.RefreshInterval,
 	}
-	err := ctl.projectServ.Create(project, authUser.UserID)
+	created, err := ctl.projectServ.Create(authUser.UserID, project)
 	if err != nil {
 		ctl.Error(c, err)
 		return
 	}
-	ctl.Success(c, project)
+	ctl.Success(c, created)
 }
 
-// GetProject 获取单个项目详情
 func (ctl *ProjectController) GetProject(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -59,7 +57,7 @@ func (ctl *ProjectController) GetProject(c *gin.Context) {
 		return
 	}
 
-	project, err := ctl.projectServ.GetByID(id, authUser.UserID)
+	project, err := ctl.projectServ.GetByID(authUser.UserID, id)
 	if err != nil {
 		ctl.Error(c, err)
 		return
@@ -67,7 +65,6 @@ func (ctl *ProjectController) GetProject(c *gin.Context) {
 	ctl.Success(c, project)
 }
 
-// GetProjectsByUser 获取当前用户的项目列表（分页）
 func (ctl *ProjectController) GetProjectsByUser(c *gin.Context) {
 	page, pageSize := ctl.parsePagination(c)
 	offset := (page - 1) * pageSize
@@ -81,16 +78,9 @@ func (ctl *ProjectController) GetProjectsByUser(c *gin.Context) {
 		ctl.Error(c, err)
 		return
 	}
-	// 注意：ListByUserID 只返回列表，没有总数，可能需要扩展服务层返回总数
-	// 这里简化处理，只返回列表，前端可自行决定是否显示总数
-	ctl.Success(c, gin.H{
-		"list": projects,
-		"page": page,
-		"size": pageSize,
-	})
+	ctl.Success(c, projects)
 }
 
-// UpdateProject 更新项目
 func (ctl *ProjectController) UpdateProject(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -113,15 +103,14 @@ func (ctl *ProjectController) UpdateProject(c *gin.Context) {
 		Description:     req.Description,
 		RefreshInterval: req.RefreshInterval,
 	}
-	err = ctl.projectServ.Update(project, authUser.UserID)
+	err = ctl.projectServ.Update(authUser.UserID, project)
 	if err != nil {
 		ctl.Error(c, err)
 		return
 	}
-	ctl.Success(c, project)
+	ctl.Success(c, gin.H{"message": "project updated successfully"})
 }
 
-// DeleteProject 删除项目（级联删除相关预算和任务）
 func (ctl *ProjectController) DeleteProject(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -134,7 +123,7 @@ func (ctl *ProjectController) DeleteProject(c *gin.Context) {
 		return
 	}
 
-	err = ctl.projectServ.Delete(id, authUser.UserID)
+	err = ctl.projectServ.Delete(authUser.UserID, id)
 	if err != nil {
 		ctl.Error(c, err)
 		return
@@ -142,7 +131,6 @@ func (ctl *ProjectController) DeleteProject(c *gin.Context) {
 	ctl.Success(c, gin.H{"message": "project deleted successfully"})
 }
 
-// AddBudget 添加项目预算
 func (ctl *ProjectController) AddBudget(c *gin.Context) {
 	projectIDStr := c.Param("id")
 	projectID, err := strconv.ParseUint(projectIDStr, 10, 64)
@@ -166,15 +154,14 @@ func (ctl *ProjectController) AddBudget(c *gin.Context) {
 		Budget:    req.Budget,
 		Used:      req.Used,
 	}
-	err = ctl.projectServ.AddBudget(projectID, budget, authUser.UserID)
+	err = ctl.projectServ.AddBudget(authUser.UserID, projectID, budget)
 	if err != nil {
 		ctl.Error(c, err)
 		return
 	}
-	ctl.Success(c, budget)
+	ctl.Success(c, gin.H{"message": "budget added successfully", "id": budget.ID})
 }
 
-// UpdateBudget 更新项目预算
 func (ctl *ProjectController) UpdateBudget(c *gin.Context) {
 	budgetIDStr := c.Param("budgetId")
 	budgetID, err := strconv.ParseUint(budgetIDStr, 10, 64)
@@ -198,15 +185,14 @@ func (ctl *ProjectController) UpdateBudget(c *gin.Context) {
 		Budget:    req.Budget,
 		Used:      req.Used,
 	}
-	err = ctl.projectServ.UpdateBudget(budget, authUser.UserID)
+	err = ctl.projectServ.UpdateBudget(authUser.UserID, budget)
 	if err != nil {
 		ctl.Error(c, err)
 		return
 	}
-	ctl.Success(c, budget)
+	ctl.Success(c, gin.H{"message": "budget updated successfully"})
 }
 
-// DeleteBudget 删除项目预算
 func (ctl *ProjectController) DeleteBudget(c *gin.Context) {
 	budgetIDStr := c.Param("budgetId")
 	budgetID, err := strconv.ParseUint(budgetIDStr, 10, 64)
@@ -219,7 +205,7 @@ func (ctl *ProjectController) DeleteBudget(c *gin.Context) {
 		return
 	}
 
-	err = ctl.projectServ.DeleteBudget(budgetID, authUser.UserID)
+	err = ctl.projectServ.DeleteBudget(authUser.UserID, budgetID)
 	if err != nil {
 		ctl.Error(c, err)
 		return

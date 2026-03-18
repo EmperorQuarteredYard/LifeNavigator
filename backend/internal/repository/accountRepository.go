@@ -9,17 +9,18 @@ import (
 )
 
 type AccountRepository interface {
-	Create(*models.Account) (*models.Account, error)
-	Delete(*models.Account) error
-	AdjustBalance(userID, accountID uint64, amount float64) (float64, error)
-	AdjustNetBalance(userID, accountID uint64, amount float64) (float64, error)
-	GetByID(userID, accountID uint64) (*models.Account, error)
+	Create(account *models.Account, userIDs []uint64) (*models.Account, error)
+	Delete(account *models.Account) error
+	AdjustBalance(accountID uint64, amount float64) (float64, error)
+	AdjustNetBalance(accountID uint64, amount float64) (float64, error)
+	GetByID(accountID uint64) (*models.Account, error)
 	ListByUserID(userID uint64) ([]models.Account, error)
 	SetUpdateMaxTry(maxTry int)
+	CheckOwnership(userID, accountID uint64) (bool, error)
 }
 
 func NewAccountRepository(db *gorm.DB) AccountRepository {
-	return accountRepository{db: db}
+	return &accountRepository{db: db, updateMaxTry: 3}
 }
 
 type accountRepository struct {
@@ -27,22 +28,33 @@ type accountRepository struct {
 	updateMaxTry int
 }
 
-func (a accountRepository) SetUpdateMaxTry(maxTry int) {
+func (a *accountRepository) SetUpdateMaxTry(maxTry int) {
 	a.updateMaxTry = maxTry
 }
 
-func (a accountRepository) AdjustNetBalance(userID, accountID uint64, amount float64) (float64, error) {
+func (a *accountRepository) CheckOwnership(userID, accountID uint64) (bool, error) {
+	var count int64
+	err := a.db.Table("account_users").
+		Where("user_id = ? AND account_id = ?", userID, accountID).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (a *accountRepository) AdjustNetBalance(accountID uint64, amount float64) (float64, error) {
 	if amount == 0 {
-		account, err := a.GetByID(userID, accountID)
+		account, err := a.GetByID(accountID)
 		if err != nil {
 			return 0, err
 		}
-		return account.Balance, nil
+		return account.NetBalance, nil
 	}
 
 	for i := 0; i < a.updateMaxTry; i++ {
 		account := &models.Account{}
-		err := a.db.Where("user_id = ? AND id = ?", userID, accountID).First(account).Error
+		err := a.db.First(account, accountID).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return 0, ErrNotFound
@@ -53,7 +65,7 @@ func (a accountRepository) AdjustNetBalance(userID, accountID uint64, amount flo
 		newNetBalance := account.NetBalance + amount
 
 		result := a.db.Model(&models.Account{}).
-			Where("user_id = ? AND id = ? AND version = ?", userID, accountID, account.Version).
+			Where("id = ? AND version = ?", accountID, account.Version).
 			Updates(map[string]interface{}{
 				"net_balance": newNetBalance,
 				"version":     account.Version + 1,
@@ -67,7 +79,7 @@ func (a accountRepository) AdjustNetBalance(userID, accountID uint64, amount flo
 			if i == a.updateMaxTry-1 {
 				return 0, ErrConcurrentUpdate
 			}
-			time.Sleep(10 * time.Millisecond) // 短暂等待后重试
+			time.Sleep(10 * time.Millisecond)
 			continue
 		}
 
@@ -75,12 +87,11 @@ func (a accountRepository) AdjustNetBalance(userID, accountID uint64, amount flo
 	}
 
 	return 0, ErrConcurrentUpdate
-
 }
 
-func (a accountRepository) AdjustBalance(userID, accountID uint64, amount float64) (float64, error) {
+func (a *accountRepository) AdjustBalance(accountID uint64, amount float64) (float64, error) {
 	if amount == 0 {
-		account, err := a.GetByID(userID, accountID)
+		account, err := a.GetByID(accountID)
 		if err != nil {
 			return 0, err
 		}
@@ -89,7 +100,7 @@ func (a accountRepository) AdjustBalance(userID, accountID uint64, amount float6
 
 	for i := 0; i < a.updateMaxTry; i++ {
 		account := &models.Account{}
-		err := a.db.Where("user_id = ? AND id = ?", userID, accountID).First(account).Error
+		err := a.db.First(account, accountID).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return 0, ErrNotFound
@@ -100,7 +111,7 @@ func (a accountRepository) AdjustBalance(userID, accountID uint64, amount float6
 		newBalance := account.Balance + amount
 
 		result := a.db.Model(&models.Account{}).
-			Where("user_id = ? AND id = ? AND version = ?", userID, accountID, account.Version).
+			Where("id = ? AND version = ?", accountID, account.Version).
 			Updates(map[string]interface{}{
 				"balance": newBalance,
 				"version": account.Version + 1,
@@ -114,7 +125,7 @@ func (a accountRepository) AdjustBalance(userID, accountID uint64, amount float6
 			if i == a.updateMaxTry-1 {
 				return 0, ErrConcurrentUpdate
 			}
-			time.Sleep(10 * time.Millisecond) // 短暂等待后重试
+			time.Sleep(10 * time.Millisecond)
 			continue
 		}
 
@@ -124,10 +135,9 @@ func (a accountRepository) AdjustBalance(userID, accountID uint64, amount float6
 	return 0, ErrConcurrentUpdate
 }
 
-// GetByID 根据用户ID和账户ID查询单个账户
-func (a accountRepository) GetByID(userID, accountID uint64) (*models.Account, error) {
+func (a *accountRepository) GetByID(accountID uint64) (*models.Account, error) {
 	account := &models.Account{}
-	err := a.db.Where("user_id = ? AND id = ?", userID, accountID).First(account).Error
+	err := a.db.First(account, accountID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
@@ -137,44 +147,58 @@ func (a accountRepository) GetByID(userID, accountID uint64) (*models.Account, e
 	return account, nil
 }
 
-// ListByUserID 查询指定用户的所有账户
-func (a accountRepository) ListByUserID(userID uint64) ([]models.Account, error) {
+func (a *accountRepository) ListByUserID(userID uint64) ([]models.Account, error) {
 	var accounts []models.Account
-	err := a.db.Where("user_id = ?", userID).Find(&accounts).Error
+	err := a.db.Joins("JOIN account_users ON account_users.account_id = accounts.id").
+		Where("account_users.user_id = ?", userID).
+		Find(&accounts).Error
 	if err != nil {
 		return nil, err
 	}
 	return accounts, nil
 }
 
-// Create 创建新账户
-// 注意：传入的 account 对象中应包含必要字段（如 UserID, Unit, Balance 等）
-// 创建后，account 的 ID 和 Version 会被自动填充（ID自增，Version默认0）
-func (a accountRepository) Create(account *models.Account) (*models.Account, error) {
-	// 可在此添加业务校验（如检查必填字段）
-	if account.UserID == 0 {
-		return nil, errors.New("user_id is required")
+func (a *accountRepository) Create(account *models.Account, userIDs []uint64) (*models.Account, error) {
+	if len(userIDs) == 0 {
+		return nil, errors.New("at least one user_id is required")
 	}
 	if account.Type == "" {
 		return nil, errors.New("type is required")
 	}
 
-	err := a.db.Create(account).Error
+	err := a.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(account).Error; err != nil {
+			return err
+		}
+
+		for _, uid := range userIDs {
+			if err := tx.Exec("INSERT INTO account_users (user_id, account_id) VALUES (?, ?)", uid, account.ID).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
 	return account, nil
 }
 
-// Delete 删除指定账户
-func (a accountRepository) Delete(account *models.Account) error {
-	// 确保 account 对象包含有效的主键（ID）
+func (a *accountRepository) Delete(account *models.Account) error {
 	if account.ID == 0 {
 		return errors.New("account ID is required for delete")
 	}
-	err := a.db.Delete(account).Error
-	if err != nil {
-		return err
-	}
-	return nil
+
+	err := a.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("DELETE FROM account_users WHERE account_id = ?", account.ID).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(account).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+
+	return err
 }

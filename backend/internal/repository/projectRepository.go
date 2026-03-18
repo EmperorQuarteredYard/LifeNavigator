@@ -8,12 +8,12 @@ import (
 )
 
 type ProjectRepository interface {
-	Create(project *models.Project) error
+	Create(project *models.Project, userIDs []uint64) error
 	GetByID(id uint64) (*models.Project, error)
-	GetByUserID(userID uint64, projectID uint64) (*models.Project, error)
 	ListByUserID(userID uint64, offset, limit int) ([]models.Project, error)
 	Update(project *models.Project) error
 	Delete(id uint64) error
+	CheckOwnership(userID, projectID uint64) (bool, error)
 }
 
 func NewProjectRepository(db *gorm.DB) ProjectRepository {
@@ -24,23 +24,34 @@ type projectRepository struct {
 	db *gorm.DB
 }
 
-func (r *projectRepository) GetByUserID(userID uint64, projectID uint64) (*models.Project, error) {
-	project := &models.Project{}
-	err := r.db.Where("user_id = ? and project_id = ?", userID, projectID).First(project).Error
+func (r *projectRepository) CheckOwnership(userID, projectID uint64) (bool, error) {
+	var count int64
+	err := r.db.Table("project_users").
+		Where("user_id = ? AND project_id = ?", userID, projectID).
+		Count(&count).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
-		}
-		return nil, err
+		return false, err
 	}
-	return project, nil
+	return count > 0, nil
 }
-func (r *projectRepository) Create(project *models.Project) error {
-	result := r.db.Create(project)
-	if result.Error != nil {
-		return result.Error
+
+func (r *projectRepository) Create(project *models.Project, userIDs []uint64) error {
+	if len(userIDs) == 0 {
+		return errors.New("at least one user_id is required")
 	}
-	return nil
+
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(project).Error; err != nil {
+			return err
+		}
+
+		for _, uid := range userIDs {
+			if err := tx.Exec("INSERT INTO project_users (user_id, project_id) VALUES (?, ?)", uid, project.ID).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (r *projectRepository) GetByID(id uint64) (*models.Project, error) {
@@ -57,7 +68,11 @@ func (r *projectRepository) GetByID(id uint64) (*models.Project, error) {
 
 func (r *projectRepository) ListByUserID(userID uint64, offset, limit int) ([]models.Project, error) {
 	var projects []models.Project
-	result := r.db.Where("user_id = ?", userID).Offset(offset).Limit(limit).Find(&projects)
+	result := r.db.Joins("JOIN project_users ON project_users.project_id = projects.id").
+		Where("project_users.user_id = ?", userID).
+		Offset(offset).
+		Limit(limit).
+		Find(&projects)
 	return projects, result.Error
 }
 
@@ -73,12 +88,17 @@ func (r *projectRepository) Update(project *models.Project) error {
 }
 
 func (r *projectRepository) Delete(id uint64) error {
-	result := r.db.Delete(&models.Project{}, id)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("DELETE FROM project_users WHERE project_id = ?", id).Error; err != nil {
+			return err
+		}
+		result := tx.Delete(&models.Project{}, id)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
 }

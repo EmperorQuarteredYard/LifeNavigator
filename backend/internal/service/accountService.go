@@ -3,6 +3,7 @@ package service
 import (
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
+	"LifeNavigator/pkg/dto"
 	"context"
 	"errors"
 	"log"
@@ -10,56 +11,90 @@ import (
 )
 
 type AccountService interface {
-	CreateAccount(*models.Account) (*models.Account, error)                                                             //创建账户
-	DeleteAccount(*models.Account) error                                                                                //更新账户
-	AdjustBalance(userID, accountID uint64, amount float64) (float64, error)                                            //同时调整Balance,NetBalance字段
-	GetByAccountID(userID, accountID uint64) (*models.Account, error)                                                   //通过 ID获取单个账户信息
-	ListByUserID(userID uint64) ([]models.Account, error)                                                               //列出一个用户拥有的所有账户
-	ListLinkedTask(userID, accountID uint64, startTime, endTime time.Time) ([]models.Task, []models.TaskPayment, error) //列出关联的所有任务
-	ListLinkedTaskPayment(userID, accountID uint64, startTime, endTime time.Time) ([]models.TaskPayment, error)         //列出关联的所有账单
+	CreateAccount(userID uint64, account *models.Account) (*dto.Account, error)
+	DeleteAccount(userID, accountID uint64) error
+	AdjustBalance(userID, accountID uint64, amount float64) (float64, error)
+	GetByAccountID(userID, accountID uint64) (*dto.Account, error)
+	ListByUserID(userID uint64) (*dto.AccountList, error)
+	ListLinkedTask(userID, accountID uint64, startTime, endTime time.Time) (*dto.TaskList, error)
+	GetUserName(userID uint64) (string, error)
 }
 
 func NewAccountService(
 	accountRepo repository.AccountRepository,
 	taskRepo repository.TaskRepository,
-	taskBudgetServ repository.TaskBudgetRepository,
+	taskBudgetRepo repository.TaskBudgetRepository,
+	userRepo repository.UserRepository,
 	transactor repository.Transactor,
 ) AccountService {
-	return &accountService{accountRepo: accountRepo, taskRepo: taskRepo, taskBudgetServ: taskBudgetServ, transactor: transactor}
+	return &accountService{
+		accountRepo:    accountRepo,
+		taskRepo:       taskRepo,
+		taskBudgetRepo: taskBudgetRepo,
+		userRepo:       userRepo,
+		transactor:     transactor,
+	}
 }
 
 type accountService struct {
 	accountRepo    repository.AccountRepository
 	taskRepo       repository.TaskRepository
-	taskBudgetServ repository.TaskBudgetRepository
+	taskBudgetRepo repository.TaskBudgetRepository
+	userRepo       repository.UserRepository
 	transactor     repository.Transactor
 }
 
-func (s *accountService) CreateAccount(account *models.Account) (*models.Account, error) {
-	acc, err := s.accountRepo.Create(account)
+func (s *accountService) GetUserName(userID uint64) (string, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return "", ErrUserNotFound
+		}
+		log.Printf("GetUserName error: %v", err)
+		return "", ErrInternal
+	}
+	return user.Username, nil
+}
+
+func (s *accountService) CreateAccount(userID uint64, account *models.Account) (*dto.Account, error) {
+	created, err := s.accountRepo.Create(account, []uint64{userID})
 	if err != nil {
 		log.Printf("CreateAccount error: %v", err)
 		return nil, ErrInternal
 	}
-	return acc, nil
+	return &dto.Account{
+		ID:         created.ID,
+		Name:       created.Name,
+		Type:       created.Type,
+		Unit:       created.Unit,
+		Balance:    created.Balance,
+		NetBalance: created.NetBalance,
+	}, nil
 }
 
-func (s *accountService) DeleteAccount(account *models.Account) error {
+func (s *accountService) DeleteAccount(userID, accountID uint64) error {
+	owned, err := s.accountRepo.CheckOwnership(userID, accountID)
+	if err != nil {
+		log.Printf("CheckOwnership error: %v", err)
+		return ErrInternal
+	}
+	if !owned {
+		return ErrForbidden
+	}
+
 	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
-		// 1. 查找所有引用该账户的项目预算
-		budgets, err := txRepo.ProjectBudget.GetByAccountID(account.ID)
+		budgets, err := txRepo.ProjectBudget.GetByAccountID(accountID)
 		if err != nil {
 			return ErrInternal
 		}
 
-		// 2. 将这些预算的账户ID置零
 		for _, b := range budgets {
 			if err := txRepo.ProjectBudget.UpdateAccountID(b.ID, 0); err != nil {
 				return ErrInternal
 			}
 		}
 
-		// 3. 删除账户
+		account := &models.Account{ID: accountID}
 		if err := txRepo.Account.Delete(account); err != nil {
 			return ErrInternal
 		}
@@ -68,7 +103,16 @@ func (s *accountService) DeleteAccount(account *models.Account) error {
 }
 
 func (s *accountService) AdjustBalance(userID, accountID uint64, amount float64) (float64, error) {
-	balance, err := s.accountRepo.AdjustBalance(userID, accountID, amount)
+	owned, err := s.accountRepo.CheckOwnership(userID, accountID)
+	if err != nil {
+		log.Printf("CheckOwnership error: %v", err)
+		return 0, ErrInternal
+	}
+	if !owned {
+		return 0, ErrForbidden
+	}
+
+	balance, err := s.accountRepo.AdjustBalance(accountID, amount)
 	if err != nil {
 		switch {
 		case errors.Is(err, repository.ErrNotFound):
@@ -81,47 +125,103 @@ func (s *accountService) AdjustBalance(userID, accountID uint64, amount float64)
 	return balance, nil
 }
 
-func (s *accountService) GetByAccountID(userID, accountID uint64) (*models.Account, error) {
-	account, err := s.accountRepo.GetByID(userID, accountID)
+func (s *accountService) GetByAccountID(userID, accountID uint64) (*dto.Account, error) {
+	owned, err := s.accountRepo.CheckOwnership(userID, accountID)
+	if err != nil {
+		log.Printf("CheckOwnership error: %v", err)
+		return nil, ErrInternal
+	}
+	if !owned {
+		return nil, ErrForbidden
+	}
+
+	account, err := s.accountRepo.GetByID(accountID)
 	if err != nil {
 		switch {
 		case errors.Is(err, repository.ErrNotFound):
 			return nil, ErrAccountNotFound
 		default:
-			log.Printf("ListByAccountID error: %v", err)
+			log.Printf("GetByAccountID error: %v", err)
 			return nil, ErrInternal
 		}
 	}
-	return account, nil
+	return &dto.Account{
+		ID:         account.ID,
+		Name:       account.Name,
+		Type:       account.Type,
+		Unit:       account.Unit,
+		Balance:    account.Balance,
+		NetBalance: account.NetBalance,
+	}, nil
 }
 
-func (s *accountService) ListByUserID(userID uint64) ([]models.Account, error) {
+func (s *accountService) ListByUserID(userID uint64) (*dto.AccountList, error) {
 	accounts, err := s.accountRepo.ListByUserID(userID)
 	if err != nil {
+		log.Printf("ListByUserID error: %v", err)
 		return nil, ErrInternal
 	}
-	return accounts, nil
+
+	items := make([]*dto.Account, len(accounts))
+	for i, acc := range accounts {
+		items[i] = &dto.Account{
+			ID:         acc.ID,
+			Name:       acc.Name,
+			Type:       acc.Type,
+			Unit:       acc.Unit,
+			Balance:    acc.Balance,
+			NetBalance: acc.NetBalance,
+		}
+	}
+	return &dto.AccountList{Items: items}, nil
 }
 
-func (s *accountService) ListLinkedTask(userID, accountID uint64, startTime, endTime time.Time) ([]models.Task, []models.TaskPayment, error) {
-	tasks, err := s.taskRepo.ListByAccountID(userID, accountID, startTime, endTime)
+func (s *accountService) ListLinkedTask(userID, accountID uint64, startTime, endTime time.Time) (*dto.TaskList, error) {
+	owned, err := s.accountRepo.CheckOwnership(userID, accountID)
 	if err != nil {
-		log.Printf("ListLinkedTask error: %v", err)
-		return nil, nil, ErrInternal
+		log.Printf("CheckOwnership error: %v", err)
+		return nil, ErrInternal
 	}
-	payments, err := s.taskBudgetServ.ListByAccountID(accountID, startTime, endTime)
-	if err != nil {
-		log.Printf("ListLinkedTask error: %v", err)
-		return nil, nil, ErrInternal
+	if !owned {
+		return nil, ErrForbidden
 	}
-	return tasks, payments, nil
-}
 
-func (s *accountService) ListLinkedTaskPayment(userID, accountID uint64, startTime, endTime time.Time) ([]models.TaskPayment, error) {
-	payments, err := s.taskBudgetServ.ListByAccountID(accountID, startTime, endTime)
+	tasks, err := s.taskRepo.ListByAccountID(accountID, startTime, endTime)
 	if err != nil {
 		log.Printf("ListLinkedTask error: %v", err)
 		return nil, ErrInternal
 	}
-	return payments, nil
+
+	list := make([]*dto.Task, len(tasks))
+	for i, task := range tasks {
+		payments, _ := s.taskBudgetRepo.GetByTaskID(task.ID)
+		paymentDtos := make([]*dto.TaskPayment, len(payments))
+		for j, p := range payments {
+			paymentDtos[j] = &dto.TaskPayment{
+				ID:       p.ID,
+				TaskID:   p.TaskID,
+				BudgetID: p.BudgetID,
+				Amount:   p.Amount,
+			}
+		}
+		list[i] = &dto.Task{
+			ID:          task.ID,
+			ProjectID:   task.ProjectID,
+			Name:        task.Name,
+			Description: task.Description,
+			Type:        task.Type,
+			Status:      task.Status,
+			Category:    task.Category,
+			Deadline:    task.Deadline,
+			CompletedAt: task.CompletedAt,
+			CreatedAt:   task.CreatedAt,
+			UpdatedAt:   task.UpdatedAt,
+			Payments:    paymentDtos,
+		}
+	}
+
+	return &dto.TaskList{
+		List:  list,
+		Total: int64(len(list)),
+	}, nil
 }

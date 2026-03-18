@@ -6,7 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// TxRepositories 聚合了所有事务性的 repository 接口
 type TxRepositories struct {
 	Project       ProjectRepository
 	ProjectBudget ProjectBudgetRepository
@@ -14,12 +13,9 @@ type TxRepositories struct {
 	TaskPayment   TaskBudgetRepository
 	Account       AccountRepository
 	User          UserRepository
-	// 可继续添加其他
 }
 
-// Transactor 定义了事务执行接口
 type Transactor interface {
-	// WithinTransaction 在事务中执行给定的函数，函数内使用事务性的 repository 实例
 	WithinTransaction(ctx context.Context, fn func(txRepo TxRepositories) error) error
 }
 

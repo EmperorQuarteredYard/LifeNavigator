@@ -31,6 +31,7 @@ var (
 	ErrTaskBudgetNotFound     = errors.New("任务预算不存在")
 	ErrProjectBudgetNotFound  = errors.New("项目预算不存在")
 	ErrBudgetNotFound         = errors.New("预算项不存在")
+	ErrKanbanNotFound         = errors.New("看板不存在")
 )
 
 // 通用
@@ -39,4 +40,5 @@ var (
 	ErrInvalidInput     = errors.New("无效输入")
 	ErrDuplicate        = errors.New("重复记录")
 	ErrConcurrentUpdate = errors.New("并发读写出错")
+	ErrForbidden        = errors.New("权限不足")
 )

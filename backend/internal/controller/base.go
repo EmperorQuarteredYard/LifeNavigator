@@ -104,6 +104,8 @@ func (b *BaseController) Error(c *gin.Context, err error) {
 		b.Code(c, errcode.StatusProjectNotFound)
 	case errors.Is(err, service.ErrTaskNotFound):
 		b.Code(c, errcode.StatusTaskNotFound)
+	case errors.Is(err, service.ErrKanbanNotFound):
+		b.Code(c, errcode.StatusNotFound)
 	case errors.Is(err, service.ErrTaskDependencyNotFound):
 		b.Code(c, errcode.StatusPrerequisiteNotFound)
 	case errors.Is(err, service.ErrTaskBudgetNotFound) ||
