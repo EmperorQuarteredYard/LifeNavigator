@@ -8,7 +8,7 @@ import (
 )
 
 func InitRouter(
-	authCtl *controller.AuthController,
+	authCtl *controller.UserController,
 	projectCtl *controller.ProjectController,
 	taskCtl *controller.TaskController,
 	accountCtl *controller.AccountController,

@@ -45,14 +45,13 @@ func (ctl *TaskController) CreateTask(c *gin.Context) {
 	}
 
 	task := &models.Task{
-		Name:           req.Name,
-		ProjectID:      req.ProjectID,
-		Description:    req.Description,
-		AutoCalculated: req.AutoCalculated,
-		Type:           req.Type,
-		Status:         req.Status,
-		Category:       req.Category,
-		Deadline:       deadline,
+		Name:        req.Name,
+		ProjectID:   req.ProjectID,
+		Description: req.Description,
+		Type:        req.Type,
+		Status:      req.Status,
+		Category:    req.Category,
+		Deadline:    deadline,
 	}
 	created, err := ctl.taskServ.Create(authUser.UserID, task)
 	if err != nil {
@@ -129,15 +128,14 @@ func (ctl *TaskController) UpdateTask(c *gin.Context) {
 	}
 
 	task := &models.Task{
-		ID:             id,
-		Name:           req.Name,
-		ProjectID:      req.ProjectID,
-		Description:    req.Description,
-		AutoCalculated: req.AutoCalculated,
-		Type:           req.Type,
-		Status:         req.Status,
-		Category:       req.Category,
-		Deadline:       deadline,
+		ID:          id,
+		Name:        req.Name,
+		ProjectID:   req.ProjectID,
+		Description: req.Description,
+		Type:        req.Type,
+		Status:      req.Status,
+		Category:    req.Category,
+		Deadline:    deadline,
 	}
 
 	err = ctl.taskServ.Update(authUser.UserID, task)

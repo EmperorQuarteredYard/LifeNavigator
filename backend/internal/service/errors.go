@@ -8,7 +8,6 @@ var (
 	ErrUserNameExists     = errors.New("用户名已存在")
 	ErrUserNotFound       = errors.New("用户名不存在")
 	ErrPasswordWrong      = errors.New("密码错误")
-	ErrForbidden          = errors.New("无权操作")
 )
 
 // 邀请码相关

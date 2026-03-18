@@ -89,12 +89,12 @@ func (ctl *AIFeatureController) buildAccountSummary(userID uint64) (string, erro
 		return "", err
 	}
 
-	if len(accounts) == 0 {
+	if len(accounts.Items) == 0 {
 		return "", nil
 	}
 
 	summary := "用户账户信息：\n"
-	for _, acc := range accounts {
+	for _, acc := range accounts.Items {
 		summary += fmt.Sprintf("- %s: 余额 %.2f\n", acc.Type, acc.Balance)
 	}
 

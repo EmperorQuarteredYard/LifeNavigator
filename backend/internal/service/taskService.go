@@ -148,9 +148,9 @@ func (s *taskService) ListByProjectID(userID, projectID uint64, page, pageSize i
 		return nil, ErrInternal
 	}
 
-	list := make([]*dto.TaskResponse, len(tasks))
+	list := make([]dto.TaskResponse, len(tasks))
 	for i, task := range tasks {
-		list[i] = s.toTaskResponse(&task)
+		list[i] = *(s.toTaskResponse(&task))
 	}
 	return &dto.TaskListResponse{
 		Page:  int64(page),
@@ -167,9 +167,9 @@ func (s *taskService) ListByUserID(userID uint64, offset, limit int) (*dto.TaskL
 		return nil, ErrInternal
 	}
 
-	list := make([]*dto.TaskResponse, len(tasks))
+	list := make([]dto.TaskResponse, len(tasks))
 	for i, task := range tasks {
-		list[i] = s.toTaskResponse(&task)
+		list[i] = *(s.toTaskResponse(&task))
 	}
 	return &dto.TaskListResponse{
 		Total: total,
@@ -262,9 +262,9 @@ func (s *taskService) GetByDeadlineBefore(userID, projectID uint64, deadline tim
 		return nil, ErrInternal
 	}
 
-	list := make([]*dto.TaskResponse, len(tasks))
+	list := make([]dto.TaskResponse, len(tasks))
 	for i, task := range tasks {
-		list[i] = s.toTaskResponse(&task)
+		list[i] = *(s.toTaskResponse(&task))
 	}
 	return &dto.TaskListResponse{
 		Page:  int64(page),
@@ -287,9 +287,9 @@ func (s *taskService) GetByDeadlineAfter(userID, projectID uint64, deadline time
 		return nil, ErrInternal
 	}
 
-	list := make([]*dto.TaskResponse, len(tasks))
+	list := make([]dto.TaskResponse, len(tasks))
 	for i, task := range tasks {
-		list[i] = s.toTaskResponse(&task)
+		list[i] = *(s.toTaskResponse(&task))
 	}
 	return &dto.TaskListResponse{
 		Page:  int64(page),
@@ -312,9 +312,9 @@ func (s *taskService) GetByTimePeriod(userID, projectID uint64, start, end time.
 		return nil, ErrInternal
 	}
 
-	list := make([]*dto.TaskResponse, len(tasks))
+	list := make([]dto.TaskResponse, len(tasks))
 	for i, task := range tasks {
-		list[i] = s.toTaskResponse(&task)
+		list[i] = *(s.toTaskResponse(&task))
 	}
 	return &dto.TaskListResponse{
 		Page:  int64(page),

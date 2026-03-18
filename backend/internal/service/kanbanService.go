@@ -68,13 +68,16 @@ func (s *kanbanService) filterOwnedProjects(userID uint64, projectIDs []uint64) 
 	return ownedIDs, nil
 }
 
-func (s *kanbanService) toKanbanResponse(kanban *models.Kanban) *dto.KanbanResponse {
-	projects := make([]dto.KanbanProject, len(kanban.Projects))
-	for i, p := range kanban.Projects {
-		projects[i] = dto.KanbanProject{
-			ID:          p.ID,
-			Name:        p.Name,
-			Description: p.Description,
+func (s *kanbanService) toKanbanResponse(kanban *models.Kanban, projectIDs []uint64) *dto.KanbanResponse {
+	projects := make([]dto.KanbanProject, len(projectIDs))
+	for i, pid := range projectIDs {
+		project, err := s.projectRepo.GetByID(pid)
+		if err == nil {
+			projects[i] = dto.KanbanProject{
+				ID:          project.ID,
+				Name:        project.Name,
+				Description: project.Description,
+			}
 		}
 	}
 	return &dto.KanbanResponse{
@@ -114,12 +117,7 @@ func (s *kanbanService) Create(userID uint64, req *dto.CreateKanbanRequest) (*dt
 		}
 	}
 
-	kanban.Projects = make([]models.Project, len(ownedProjectIDs))
-	for i, pid := range ownedProjectIDs {
-		kanban.Projects[i].ID = pid
-	}
-
-	return s.toKanbanResponse(kanban), nil
+	return s.toKanbanResponse(kanban, ownedProjectIDs), nil
 }
 
 func (s *kanbanService) GetByID(userID, id uint64) (*dto.KanbanResponse, error) {
@@ -127,7 +125,7 @@ func (s *kanbanService) GetByID(userID, id uint64) (*dto.KanbanResponse, error) 
 		return nil, err
 	}
 
-	kanban, err := s.kanbanRepo.GetByIDWithProjects(id)
+	kanban, err := s.kanbanRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrKanbanNotFound
@@ -136,7 +134,13 @@ func (s *kanbanService) GetByID(userID, id uint64) (*dto.KanbanResponse, error) 
 		return nil, ErrInternal
 	}
 
-	return s.toKanbanResponse(kanban), nil
+	projectIDs, err := s.kanbanRepo.GetProjectIDs(id)
+	if err != nil {
+		log.Printf("failed to get kanban project IDs: %v", err)
+		return nil, ErrInternal
+	}
+
+	return s.toKanbanResponse(kanban, projectIDs), nil
 }
 
 func (s *kanbanService) ListByUserID(userID uint64) (*dto.KanbanListResponse, error) {
@@ -148,7 +152,12 @@ func (s *kanbanService) ListByUserID(userID uint64) (*dto.KanbanListResponse, er
 
 	list := make([]dto.KanbanResponse, len(kanbans))
 	for i, k := range kanbans {
-		resp := s.toKanbanResponse(&k)
+		projectIDs, err := s.kanbanRepo.GetProjectIDs(k.ID)
+		if err != nil {
+			log.Printf("failed to get kanban project IDs: %v", err)
+			projectIDs = []uint64{}
+		}
+		resp := s.toKanbanResponse(&k, projectIDs)
 		list[i] = *resp
 	}
 

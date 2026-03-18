@@ -286,12 +286,12 @@ func (s *aiFeatureService) parseAndCreateEntities(ctx context.Context, userID ui
 
 	err := s.transactor.WithinTransaction(ctx, func(txRepo repository.TxRepositories) error {
 		project := &models.Project{
-			UserID:      userID,
 			Name:        aiResp.Project.Name,
 			Description: aiResp.Project.Description,
 		}
-
-		if err := txRepo.Project.Create(project); err != nil {
+		var users []uint64
+		users = append(users, userID)
+		if err := txRepo.Project.Create(project, users); err != nil {
 			return fmt.Errorf("failed to create project: %w", err)
 		}
 		createdProject = project
@@ -315,7 +315,6 @@ func (s *aiFeatureService) parseAndCreateEntities(ctx context.Context, userID ui
 			}
 
 			task := &models.Task{
-				UserID:      userID,
 				ProjectID:   project.ID,
 				Name:        taskData.Name,
 				Description: taskData.Description,

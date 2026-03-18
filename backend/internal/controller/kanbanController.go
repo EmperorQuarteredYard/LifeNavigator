@@ -16,7 +16,7 @@ type KanbanController struct {
 
 func NewKanbanController(kanbanServ service.KanbanService) *KanbanController {
 	return &KanbanController{
-		kanbanServ:    kanbanServ,
+		kanbanServ:     kanbanServ,
 		BaseController: &BaseController{},
 	}
 }
