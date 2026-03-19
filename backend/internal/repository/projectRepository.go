@@ -2,7 +2,9 @@ package repository
 
 import (
 	"LifeNavigator/internal/models"
+	"LifeNavigator/pkg/scheduler"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -14,6 +16,7 @@ type ProjectRepository interface {
 	Update(project *models.Project) error
 	Delete(id uint64) error
 	CheckOwnership(userID, projectID uint64) (bool, error)
+	GetRefreshInformation(page, pageSize int) (list []*scheduler.Schedule, total int64, err error)
 }
 
 func NewProjectRepository(db *gorm.DB) ProjectRepository {
@@ -22,6 +25,46 @@ func NewProjectRepository(db *gorm.DB) ProjectRepository {
 
 type projectRepository struct {
 	db *gorm.DB
+}
+
+func (r *projectRepository) GetRefreshInformation(page, pageSize int) (list []*scheduler.Schedule, total int64, err error) {
+	var limit, offset int
+	if err = r.db.Model(&models.Project{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if int64(page*pageSize) > total {
+		limit = int(total % int64(pageSize))
+		offset = int(total - int64(limit))
+	} else {
+		limit = pageSize
+		offset = page * pageSize
+	}
+
+	rows, err := r.db.
+		Model(&models.Project{}).
+		Select("id", "last_refresh").
+		Offset(offset).
+		Limit(limit).
+		Order("last_refresh asc").
+		Rows()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	defer rows.Close()
+
+	var id uint64
+	var lastRefresh time.Time
+	list = make([]*scheduler.Schedule, limit)
+	index := 0
+	for rows.Next() {
+		if err = rows.Scan(&id, &lastRefresh); err != nil {
+			return nil, 0, err
+		}
+		list[index] = &scheduler.Schedule{}
+		index++
+	}
+	return list, total, nil
 }
 
 func (r *projectRepository) CheckOwnership(userID, projectID uint64) (bool, error) {

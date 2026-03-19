@@ -4,10 +4,15 @@ import (
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
+	"LifeNavigator/pkg/refresh"
+	"LifeNavigator/pkg/scheduler"
 	"context"
 	"errors"
 	"log"
+	"time"
 )
+
+// todo 任务扣除预算的行为应当放在任务DeadLine所在刷新周期内
 
 type ProjectService interface {
 	Create(userID uint64, project *models.Project) (*dto.ProjectResponse, error)
@@ -18,14 +23,9 @@ type ProjectService interface {
 	AddBudget(userID, projectID uint64, budget *models.ProjectBudget) error
 	UpdateBudget(userID uint64, budget *models.ProjectBudget) error
 	DeleteBudget(userID, budgetID uint64) error
-}
-
-type projectService struct {
-	transactor        repository.Transactor
-	projectRepo       repository.ProjectRepository
-	projectBudgetRepo repository.ProjectBudgetRepository
-	taskBudgetRepo    repository.TaskBudgetRepository
-	taskRepo          repository.TaskRepository
+	RefreshBudget(projectID uint64) error
+	StartAutoRefresh() error
+	EndAutoRefresh()
 }
 
 func NewProjectService(
@@ -35,13 +35,91 @@ func NewProjectService(
 	taskBudgetRepo repository.TaskBudgetRepository,
 	taskRepo repository.TaskRepository,
 ) ProjectService {
+	scheduleServ := scheduler.NewScheduleService(func(uint64) error { return nil }, func(int, int) (int64, []*scheduler.Schedule) { return 0, nil })
 	return &projectService{
 		transactor:        transactor,
 		projectRepo:       projectRepo,
 		projectBudgetRepo: projectBudgetRepo,
 		taskBudgetRepo:    taskBudgetRepo,
 		taskRepo:          taskRepo,
+		scheduleService:   scheduleServ,
 	}
+}
+
+type projectService struct {
+	transactor        repository.Transactor
+	projectRepo       repository.ProjectRepository
+	projectBudgetRepo repository.ProjectBudgetRepository
+	taskBudgetRepo    repository.TaskBudgetRepository
+	taskRepo          repository.TaskRepository
+	scheduleService   *scheduler.ScheduleService
+}
+
+func (s *projectService) StartAutoRefresh() error {
+	var schExeFunc = func(ID uint64) error {
+		return s.RefreshBudget(ID)
+	}
+	var schGetFunc = func(page, pageSize int) (int64, []*scheduler.Schedule) {
+		sch, totalZ, errZ := s.projectRepo.GetRefreshInformation(page, pageSize)
+		if errZ != nil {
+			log.Printf("failed to start auto-refresh:%v", errZ)
+		}
+		return totalZ, sch
+	}
+	s.scheduleService = scheduler.NewScheduleService(schExeFunc, schGetFunc)
+	s.scheduleService.Start()
+	return nil
+}
+func (s *projectService) EndAutoRefresh() {
+	s.scheduleService.Stop()
+}
+
+func (s *projectService) RefreshBudget(projectID uint64) error {
+	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+		project, err := s.projectRepo.GetByID(projectID)
+		if err != nil {
+			switch {
+			case errors.Is(err, repository.ErrNotFound):
+				return ErrProjectNotFound
+			default:
+				log.Printf("fail to get project %d :%v", projectID, err)
+				return ErrInternal
+			}
+		}
+		project.LastRefresh = time.Now()
+		if err = txRepo.Project.Update(project); err != nil {
+			switch {
+			case errors.Is(err, repository.ErrNotFound):
+				return ErrProjectNotFound
+			default:
+				log.Printf("fail to update project %d :%v", projectID, err)
+				return ErrInternal
+			}
+		}
+		budgets, err := txRepo.ProjectBudget.GetByProjectID(projectID)
+		if err != nil {
+			switch {
+			case errors.Is(err, repository.ErrNotFound):
+				return ErrBudgetNotFound
+			}
+		}
+		for _, budget := range budgets {
+			if _, err = txRepo.Account.AdjustNetBalance(budget.AccountID, budget.Used); err != nil {
+				switch {
+				case errors.Is(err, repository.ErrNotFound):
+					return ErrAccountNotFound
+				default:
+					log.Printf("fail to add budget %d :%v", budget.ID, err)
+					return ErrInternal
+				}
+			}
+		}
+		if _, strategy := refresh.ReduceRefreshInterval(project.RefreshInterval); strategy != refresh.TypeRefreshNever {
+			s.scheduleService.AddRefreshSchedule(projectID, *refresh.GetNextRefreshTime(project.RefreshInterval, project.LastRefresh))
+		}
+
+		return nil
+	})
 }
 
 func (s *projectService) checkProjectOwnership(projectID uint64, userID uint64) error {
@@ -61,6 +139,9 @@ func (s *projectService) Create(userID uint64, project *models.Project) (*dto.Pr
 	if err != nil {
 		log.Printf("failed to create project: %v", err)
 		return nil, ErrInternal
+	}
+	if _, strategy := refresh.ReduceRefreshInterval(project.RefreshInterval); strategy != refresh.TypeRefreshNever {
+		s.scheduleService.AddRefreshSchedule(project.ID, *refresh.GetNextRefreshTime(project.RefreshInterval, project.LastRefresh))
 	}
 	return &dto.ProjectResponse{
 		ID:              project.ID,
@@ -89,9 +170,9 @@ func (s *projectService) GetByID(userID, id uint64) (*dto.ProjectResponse, error
 	}
 
 	budgets, _ := s.projectBudgetRepo.GetByProjectID(id)
-	budgetDtos := make([]*dto.ProjectBudgetResponse, len(budgets))
+	dtoBudgets := make([]*dto.ProjectBudgetResponse, len(budgets))
 	for i, b := range budgets {
-		budgetDtos[i] = &dto.ProjectBudgetResponse{
+		dtoBudgets[i] = &dto.ProjectBudgetResponse{
 			ID:        b.ID,
 			ProjectID: b.ProjectID,
 			AccountID: b.AccountID,
@@ -110,7 +191,7 @@ func (s *projectService) GetByID(userID, id uint64) (*dto.ProjectResponse, error
 		MaxTaskID:       project.MaxTaskID,
 		CreatedAt:       project.CreatedAt,
 		UpdatedAt:       project.UpdatedAt,
-		Budgets:         budgetDtos,
+		Budgets:         dtoBudgets,
 	}, nil
 }
 
@@ -147,6 +228,9 @@ func (s *projectService) Update(userID uint64, project *models.Project) error {
 		}
 		log.Printf("failed to update project %d: %v", project.ID, err)
 		return ErrInternal
+	}
+	if _, strategy := refresh.ReduceRefreshInterval(project.RefreshInterval); strategy != refresh.TypeRefreshNever {
+		s.scheduleService.UpdateRefreshSchedule(project.ID, *refresh.GetNextRefreshTime(project.RefreshInterval, project.LastRefresh))
 	}
 	return nil
 }
@@ -187,6 +271,7 @@ func (s *projectService) Delete(userID, id uint64) error {
 			log.Printf("failed to delete project %d: %v", id, err)
 			return ErrInternal
 		}
+		s.scheduleService.DeleteRefreshSchedule(id)
 		return nil
 	})
 }
