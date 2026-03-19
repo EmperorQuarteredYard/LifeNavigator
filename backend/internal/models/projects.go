@@ -15,7 +15,7 @@ type Project struct {
 	Name            string    `json:"name"`
 	Description     string    `json:"description"`
 	RefreshInterval uint32    `json:"refresh_interval"`
-	LastRefresh     time.Time `json:"last_refresh"` //TODO 首先，这东西额得做进预算；其次，这东西得改成NextRefresh
+	LastRefresh     time.Time `json:"last_refresh"` //TODO 这东西得同样地做进预算
 	MaxTaskID       uint64    `json:"MaxTaskID" gorm:"default:0"`
 
 	// 关联的项目预算

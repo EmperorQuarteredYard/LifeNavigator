@@ -2,7 +2,7 @@ package router
 
 import (
 	"LifeNavigator/internal/controller"
-	"LifeNavigator/pkg/jwt"
+	"LifeNavigator/middleWare/jwt"
 	"os"
 	"strings"
 	"time"

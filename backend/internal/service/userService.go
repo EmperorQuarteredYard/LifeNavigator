@@ -3,7 +3,7 @@ package service
 import (
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
-	"LifeNavigator/pkg/jwt"
+	"LifeNavigator/middleWare/jwt"
 	"LifeNavigator/pkg/roles"
 	"errors"
 	"log"

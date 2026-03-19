@@ -2,8 +2,8 @@ package controller
 
 import (
 	"LifeNavigator/internal/service"
+	"LifeNavigator/middleWare/jwt"
 	"LifeNavigator/pkg/errcode"
-	"LifeNavigator/pkg/jwt"
 	"LifeNavigator/pkg/response"
 	"errors"
 	"io"

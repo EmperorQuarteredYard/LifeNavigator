@@ -3,9 +3,9 @@ package controller
 import (
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/service"
+	"LifeNavigator/middleWare/jwt"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/errcode"
-	"LifeNavigator/pkg/jwt"
 	"errors"
 	"strconv"
 
