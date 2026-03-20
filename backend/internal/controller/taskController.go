@@ -5,7 +5,6 @@ import (
 	"LifeNavigator/internal/service"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/errcode"
-	"log"
 	"strconv"
 	"time"
 
@@ -146,7 +145,7 @@ func (ctl *TaskController) UpdateTask(c *gin.Context) {
 	ctl.Success(c, gin.H{"message": "task updated successfully"})
 }
 
-func (ctl *TaskController) ListTasks(c *gin.Context) {
+func (ctl *TaskController) ListTasks(c *gin.Context) { // TODO 这里应当增加一个开始，结束时间的筛选，如果没有指定则为在此方向上无边界
 	page, pageSize := ctl.parsePagination(c)
 	projectIDStr := c.Query("project_id")
 	authUser, ok := ctl.GetAuthUser(c)
@@ -176,55 +175,6 @@ func (ctl *TaskController) ListTasks(c *gin.Context) {
 		return
 	}
 	ctl.Success(c, tasks)
-}
-
-func (ctl *TaskController) FinishTask(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
-		return
-	}
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-
-	task, err := ctl.taskServ.GetByID(authUser.UserID, id)
-	if err != nil {
-		ctl.Error(c, err)
-		return
-	}
-
-	var req dto.FinishTaskRequest
-	if !ctl.BindJSON(c, &req) {
-		return
-	}
-	now, err := time.Parse(time.RFC3339, req.Time)
-	if err != nil {
-		log.Printf("fail to parse time %s", req.Time)
-		ctl.Code(c, errcode.StatusInvalidParams)
-		return
-	}
-
-	updateTask := &models.Task{
-		ID:          task.ID,
-		ProjectID:   task.ProjectID,
-		Name:        task.Name,
-		Description: task.Description,
-		Type:        task.Type,
-		Status:      2,
-		Category:    task.Category,
-		Deadline:    task.Deadline,
-		CompletedAt: &now,
-	}
-
-	err = ctl.taskServ.Update(authUser.UserID, updateTask)
-	if err != nil {
-		ctl.Error(c, err)
-		return
-	}
-	ctl.Success(c, gin.H{"message": "task finished successfully"})
 }
 
 func (ctl *TaskController) UpdateTaskStatus(c *gin.Context) {
@@ -333,97 +283,4 @@ func (ctl *TaskController) UnsetPrerequisites(c *gin.Context) {
 		return
 	}
 	ctl.Success(c, gin.H{"message": "prerequisite unset successfully"})
-}
-
-func (ctl *TaskController) SetPayment(c *gin.Context) {
-	idStr := c.Param("id")
-	taskID, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
-		return
-	}
-	var req dto.CreateTaskPaymentRequest
-	if !ctl.BindJSON(c, &req) {
-		return
-	}
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-	payment := &models.TaskPayment{
-		TaskID:   taskID,
-		BudgetID: req.BudgetID,
-		Amount:   req.Amount,
-	}
-	err = ctl.taskServ.AddPayment(authUser.UserID, taskID, payment)
-	if err != nil {
-		ctl.Error(c, err)
-		return
-	}
-	ctl.Success(c, gin.H{"message": "payment added successfully", "id": payment.ID})
-}
-
-func (ctl *TaskController) UpdatePayment(c *gin.Context) {
-	idStr := c.Param("id")
-	paymentID, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
-		return
-	}
-	var req dto.UpdateTaskPaymentRequest
-	if !ctl.BindJSON(c, &req) {
-		return
-	}
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-	payment := &models.TaskPayment{
-		ID:     paymentID,
-		Amount: req.Amount,
-	}
-	err = ctl.taskServ.UpdatePayment(authUser.UserID, payment)
-	if err != nil {
-		ctl.Error(c, err)
-		return
-	}
-	ctl.Success(c, gin.H{"message": "payment updated successfully"})
-}
-
-func (ctl *TaskController) DeletePayment(c *gin.Context) {
-	idStr := c.Param("id")
-	paymentID, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
-		return
-	}
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-	err = ctl.taskServ.DeletePayment(authUser.UserID, paymentID)
-	if err != nil {
-		ctl.Error(c, err)
-		return
-	}
-	ctl.Success(c, gin.H{"message": "payment deleted successfully"})
-}
-
-func (ctl *TaskController) GetPayments(c *gin.Context) {
-	idStr := c.Param("id")
-	taskID, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		ctl.Code(c, errcode.StatusInvalidParams)
-		return
-	}
-	authUser, ok := ctl.GetAuthUser(c)
-	if !ok {
-		return
-	}
-	payments, err := ctl.taskServ.GetPaymentByTaskID(authUser.UserID, taskID)
-	if err != nil {
-		ctl.Error(c, err)
-		return
-	}
-	ctl.Success(c, payments)
 }

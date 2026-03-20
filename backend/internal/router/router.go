@@ -20,6 +20,7 @@ func SetupRouter(
 	projectCtrl *controller.ProjectController,
 	taskCtrl *controller.TaskController,
 	userCtrl *controller.UserController,
+	budgetCTL *controller.BudgetController,
 ) *gin.Engine {
 	r := gin.Default()
 	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
@@ -84,9 +85,9 @@ func SetupRouter(
 			authorized.DELETE("/projects/:id", projectCtrl.DeleteProject)
 
 			// 项目预算
-			authorized.POST("/projects/:id/budgets", projectCtrl.AddBudget)
-			authorized.PUT("/projects/budgets/:budgetId", projectCtrl.UpdateBudget)
-			authorized.DELETE("/projects/budgets/:budgetId", projectCtrl.DeleteBudget)
+			authorized.POST("/projects/:id/budgets", budgetCTL.AddBudget)
+			authorized.PUT("/projects/budgets/:budgetId", budgetCTL.UpdateBudget)
+			authorized.DELETE("/projects/budgets/:budgetId", budgetCTL.DeleteBudget)
 
 			// 任务相关
 			authorized.POST("/tasks", taskCtrl.CreateTask)
@@ -94,7 +95,7 @@ func SetupRouter(
 			authorized.GET("/tasks/:id", taskCtrl.GetTask)
 			authorized.PUT("/tasks/:id", taskCtrl.UpdateTask)
 			authorized.DELETE("/tasks/:id", taskCtrl.DeleteTask)
-			authorized.POST("/tasks/:id/finish", taskCtrl.FinishTask)
+			//authorized.POST("/tasks/:id/finish", taskCtrl.FinishTask)
 			authorized.PUT("/tasks/:id/status", taskCtrl.UpdateTaskStatus) // 更新状态
 
 			// 任务依赖
@@ -104,10 +105,10 @@ func SetupRouter(
 			authorized.DELETE("/tasks/:id/prerequisites", taskCtrl.UnsetPrerequisites) // 需在body中传prerequisite_id
 
 			// 任务付款
-			authorized.POST("/tasks/:id/payments", taskCtrl.SetPayment)
-			authorized.GET("/tasks/:id/payments", taskCtrl.GetPayments)
-			authorized.PUT("/tasks/payments/:id", taskCtrl.UpdatePayment)
-			authorized.DELETE("/tasks/payments/:id", taskCtrl.DeletePayment)
+			authorized.POST("/tasks/:id/payments", budgetCTL.SetPayment)
+			authorized.GET("/tasks/:id/payments", budgetCTL.GetPayments)
+			authorized.PUT("/tasks/payments/:id", budgetCTL.UpdatePayment)
+			authorized.DELETE("/tasks/payments/:id", budgetCTL.DeletePayment)
 
 			// 看板相关
 			authorized.POST("/kanbans", kanbanCtrl.CreateKanban)

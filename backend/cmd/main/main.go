@@ -42,19 +42,21 @@ func ServeByRealDatabase() {
 	aiFeatureService := service.NewAIFeatureService(transactor)
 	inviteCodeService := service.NewInviteCodeService(inviteCodeRepo)
 	inviteUserService := service.NewInviteUserService(userService, inviteCodeService)
-	kanbanSerivice := service.NewKanbanService(kanbanRepo, projectRepo, taskRepo, taskPaymentRepo)
+	kanbanService := service.NewKanbanService(kanbanRepo, projectRepo, taskRepo, taskPaymentRepo)
+	budgetService := service.NewBudgetService(taskRepo, taskPaymentRepo, projectBudgetRepo, accountRepo, projectRepo, transactor)
 
 	projectCtl := controller.NewProjectController(projectService)
 	taskCtl := controller.NewTaskController(taskService)
 	accountCtl := controller.NewAccountController(accountService)
 	aIFeatureController := controller.NewAIFeatureController(aiFeatureService, accountService)
 	inviteController := controller.NewInviteController(inviteCodeService, inviteUserService, userService)
-	kanbanController := controller.NewKanbanController(kanbanSerivice)
+	kanbanController := controller.NewKanbanController(kanbanService)
 	userController := controller.NewUserController(userService, inviteUserService)
+	budgetController := controller.NewBudgetController(budgetService)
 
 	initAdministrator(db, userService)
 
-	r := router.SetupRouter(accountCtl, aIFeatureController, inviteController, kanbanController, projectCtl, taskCtl, userController)
+	r := router.SetupRouter(accountCtl, aIFeatureController, inviteController, kanbanController, projectCtl, taskCtl, userController, budgetController)
 	log.Println("Listening on port :5083")
 	if err := r.Run(":5083"); err != nil {
 		log.Fatal("failed to start server: ", err)
