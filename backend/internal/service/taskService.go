@@ -77,7 +77,7 @@ func (s *taskService) checkProjectOwnership(userID, projectID uint64) error {
 }
 
 func (s *taskService) toTaskResponse(task *models.Task) *dto.TaskResponse {
-	payments, _ := s.taskBudgetRepo.GetByTaskID(task.ID)
+	payments, _ := s.taskBudgetRepo.GetByTaskID(task.ID) //TODO 这里应当迁移到budgetService
 	paymentDtos := make([]*dto.TaskPaymentResponse, len(payments))
 	for i, p := range payments {
 		paymentDtos[i] = &dto.TaskPaymentResponse{

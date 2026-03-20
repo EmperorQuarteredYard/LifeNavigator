@@ -87,7 +87,7 @@ func (s *projectService) GetByID(userID, id uint64) (*dto.ProjectResponse, error
 		return nil, ErrInternal
 	}
 
-	budgets, _ := s.projectBudgetRepo.GetByProjectID(id)
+	budgets, _ := s.projectBudgetRepo.GetByProjectID(id) //TODO 这里不应该返回的(虽然这是我最近加发hh）
 	dtoBudgets := make([]*dto.ProjectBudgetResponse, len(budgets))
 	for i, b := range budgets {
 		dtoBudgets[i] = &dto.ProjectBudgetResponse{
@@ -157,7 +157,7 @@ func (s *projectService) Delete(userID, id uint64) error {
 	}
 
 	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
-		budgets, err := txRepo.ProjectBudget.GetByProjectID(id)
+		budgets, err := txRepo.ProjectBudget.GetByProjectID(id) //TODO 鉴于Budget确实是依附于Project存在的，就不解耦了
 		if err != nil {
 			return ErrInternal
 		}
