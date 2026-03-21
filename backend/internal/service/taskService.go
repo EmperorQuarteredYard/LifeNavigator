@@ -4,6 +4,7 @@ import (
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
+	"LifeNavigator/pkg/permission"
 	"context"
 	"errors"
 	"log"
@@ -14,7 +15,6 @@ type TaskService interface {
 	Create(userID uint64, task *models.Task) (*dto.TaskResponse, error)
 	GetByID(userID, id uint64) (*dto.TaskResponse, error)
 	ListByProjectID(userID, projectID uint64, page, pageSize int) (*dto.TaskListResponse, error)
-	ListByUserID(userID uint64, offset, limit int) (*dto.TaskListResponse, error)
 	Update(userID uint64, task *models.Task) error
 	UpdateStatus(userID, id uint64, status uint8) error
 	Delete(userID, id uint64) error
@@ -39,7 +39,7 @@ func NewTaskService(
 		transactor:     transactor,
 		taskRepo:       taskRepo,
 		taskBudgetRepo: taskBudgetRepo,
-		projectRepo:    projectRepo,
+		projectBase:    &projectBase{projectRepo: projectRepo},
 		accountRepo:    accountRepo,
 	}
 }
@@ -48,32 +48,8 @@ type taskService struct {
 	transactor     repository.Transactor
 	taskRepo       repository.TaskRepository
 	taskBudgetRepo repository.TaskBudgetRepository
-	projectRepo    repository.ProjectRepository
 	accountRepo    repository.AccountRepository
-}
-
-func (s *taskService) checkTaskOwnership(userID, taskID uint64) error {
-	owned, err := s.taskRepo.CheckOwnership(userID, taskID)
-	if err != nil {
-		log.Printf("failed to check task ownership %d: %v", taskID, err)
-		return ErrInternal
-	}
-	if !owned {
-		return ErrForbidden
-	}
-	return nil
-}
-
-func (s *taskService) checkProjectOwnership(userID, projectID uint64) error {
-	owned, err := s.projectRepo.CheckOwnership(userID, projectID)
-	if err != nil {
-		log.Printf("failed to check project ownership %d: %v", projectID, err)
-		return ErrInternal
-	}
-	if !owned {
-		return ErrForbidden
-	}
-	return nil
+	*projectBase
 }
 
 func (s *taskService) toTaskResponse(task *models.Task) *dto.TaskResponse {
@@ -105,7 +81,7 @@ func (s *taskService) toTaskResponse(task *models.Task) *dto.TaskResponse {
 
 func (s *taskService) Create(userID uint64, task *models.Task) (*dto.TaskResponse, error) {
 	if task.ProjectID != 0 {
-		if err := s.checkProjectOwnership(userID, task.ProjectID); err != nil {
+		if err := s.checkProjectAccessibility(userID, task.ProjectID, permission.OpCreate); err != nil {
 			return nil, err
 		}
 	}
@@ -117,9 +93,6 @@ func (s *taskService) Create(userID uint64, task *models.Task) (*dto.TaskRespons
 }
 
 func (s *taskService) GetByID(userID, id uint64) (*dto.TaskResponse, error) {
-	if err := s.checkTaskOwnership(userID, id); err != nil {
-		return nil, err
-	}
 	task, err := s.taskRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -128,11 +101,14 @@ func (s *taskService) GetByID(userID, id uint64) (*dto.TaskResponse, error) {
 		log.Printf("failed to get task %d: %v", id, err)
 		return nil, ErrInternal
 	}
+	if err := s.checkProjectAccessibility(userID, task.ProjectID, permission.OpRead); err != nil {
+		return nil, err
+	}
 	return s.toTaskResponse(task), nil
 }
 
 func (s *taskService) ListByProjectID(userID, projectID uint64, page, pageSize int) (*dto.TaskListResponse, error) {
-	if err := s.checkProjectOwnership(userID, projectID); err != nil {
+	if err := s.checkProjectAccessibility(userID, projectID, permission.OpRead); err != nil {
 		return nil, err
 	}
 	tasks, total, err := s.taskRepo.ListByProjectID(projectID, page, pageSize)
@@ -156,33 +132,28 @@ func (s *taskService) ListByProjectID(userID, projectID uint64, page, pageSize i
 	}, nil
 }
 
-func (s *taskService) ListByUserID(userID uint64, offset, limit int) (*dto.TaskListResponse, error) {
-	tasks, total, err := s.taskRepo.ListByUserID(userID, offset, limit)
+func (s *taskService) Update(userID uint64, task *models.Task) (err error) {
+	var oldTask *models.Task
+	oldTask, err = s.taskRepo.GetByID(task.ID)
 	if err != nil {
-		log.Printf("failed to list tasks for user %d: %v", userID, err)
-		return nil, ErrInternal
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrTaskNotFound
+		}
+		log.Printf("failed to get task %d: %v", task.ID, err)
+		return ErrInternal
 	}
-
-	list := make([]dto.TaskResponse, len(tasks))
-	for i, task := range tasks {
-		list[i] = *(s.toTaskResponse(&task))
-	}
-	return &dto.TaskListResponse{
-		Total: total,
-		List:  list,
-	}, nil
-}
-
-func (s *taskService) Update(userID uint64, task *models.Task) error {
-	if err := s.checkTaskOwnership(userID, task.ID); err != nil {
-		return err
-	}
-	if task.ProjectID != 0 {
-		if err := s.checkProjectOwnership(userID, task.ProjectID); err != nil {
+	if oldTask.ProjectID != task.ProjectID && task.ProjectID != 0 { //行为：迁移
+		err = s.checkProjectAccessibility(userID, oldTask.ProjectID, permission.OpDelete)
+		if err != nil {
+			return err
+		}
+	} else { //行为：更新
+		err = s.checkProjectAccessibility(userID, oldTask.ProjectID, permission.OpUpdate)
+		if err != nil {
 			return err
 		}
 	}
-	if err := s.taskRepo.Update(task); err != nil {
+	if err = s.taskRepo.Update(task); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return ErrTaskNotFound
 		}
@@ -193,32 +164,50 @@ func (s *taskService) Update(userID uint64, task *models.Task) error {
 }
 
 func (s *taskService) Delete(userID, id uint64) error {
-	if err := s.checkTaskOwnership(userID, id); err != nil {
-		return err
-	}
 
 	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
-		if err := txRepo.TaskPayment.DeleteByTaskID(id); err != nil {
-			log.Printf("failed to delete task budgets: %v", err)
+		var task *models.Task
+		task, err := txRepo.Task.GetByID(id)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrTaskNotFound
+			}
+			log.Printf("failed to get task %d: %v", id, err)
 			return ErrInternal
 		}
-		if err := txRepo.Task.Delete(id); err != nil {
+		if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpDelete); err != nil {
+			return err
+		}
+		if err = txRepo.Task.Delete(id); err != nil {
 			if errors.Is(err, repository.ErrNotFound) {
 				return ErrTaskNotFound
 			}
 			log.Printf("failed to delete task %d: %v", id, err)
 			return ErrInternal
 		}
+		if err = txRepo.TaskPayment.DeleteByTaskID(id); err != nil {
+			log.Printf("failed to delete task budgets: %v", err)
+			return ErrInternal
+		}
 		return nil
 	})
 }
 
-func (s *taskService) UpdateStatus(userID, id uint64, status uint8) error {
-	if err := s.checkTaskOwnership(userID, id); err != nil {
+func (s *taskService) UpdateStatus(userID, id uint64, status uint8) (err error) {
+	var oldTask *models.Task
+	oldTask, err = s.taskRepo.GetByID(id)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrTaskNotFound
+		}
+		log.Printf("failed to get task %d: %v", id, err)
+		return ErrInternal
+	}
+	if err = s.checkProjectAccessibility(userID, oldTask.ProjectID, permission.OpUpdate); err != nil {
 		return err
 	}
 
-	if err := s.taskRepo.UpdateStatus(id, status); err != nil {
+	if err = s.taskRepo.UpdateStatus(id, status); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return ErrTaskNotFound
 		}
@@ -229,7 +218,7 @@ func (s *taskService) UpdateStatus(userID, id uint64, status uint8) error {
 }
 
 func (s *taskService) GetByStatus(userID, projectID uint64, status uint8) ([]*dto.TaskResponse, error) {
-	if err := s.checkProjectOwnership(userID, projectID); err != nil {
+	if err := s.checkProjectAccessibility(userID, projectID, permission.OpRead); err != nil {
 		return nil, err
 	}
 	tasks, err := s.taskRepo.GetByStatus(projectID, status)
@@ -246,7 +235,7 @@ func (s *taskService) GetByStatus(userID, projectID uint64, status uint8) ([]*dt
 }
 
 func (s *taskService) GetByDeadlineBefore(userID, projectID uint64, deadline time.Time, page, pageSize int) (*dto.TaskListResponse, error) {
-	if err := s.checkProjectOwnership(userID, projectID); err != nil {
+	if err := s.checkProjectAccessibility(userID, projectID, permission.OpRead); err != nil {
 		return nil, err
 	}
 	tasks, total, err := s.taskRepo.GetByDeadlineBefore(projectID, deadline, page, pageSize)
@@ -271,7 +260,7 @@ func (s *taskService) GetByDeadlineBefore(userID, projectID uint64, deadline tim
 }
 
 func (s *taskService) GetByDeadlineAfter(userID, projectID uint64, deadline time.Time, page, pageSize int) (*dto.TaskListResponse, error) {
-	if err := s.checkProjectOwnership(userID, projectID); err != nil {
+	if err := s.checkProjectAccessibility(userID, projectID, permission.OpRead); err != nil {
 		return nil, err
 	}
 	tasks, total, err := s.taskRepo.GetByDeadlineAfter(projectID, deadline, page, pageSize)
@@ -296,7 +285,7 @@ func (s *taskService) GetByDeadlineAfter(userID, projectID uint64, deadline time
 }
 
 func (s *taskService) GetByTimePeriod(userID, projectID uint64, start, end time.Time, page, pageSize int) (*dto.TaskListResponse, error) {
-	if err := s.checkProjectOwnership(userID, projectID); err != nil {
+	if err := s.checkProjectAccessibility(userID, projectID, permission.OpRead); err != nil {
 		return nil, err
 	}
 	tasks, total, err := s.taskRepo.GetByTimePeriod(projectID, start, end, page, pageSize)
@@ -320,12 +309,27 @@ func (s *taskService) GetByTimePeriod(userID, projectID uint64, start, end time.
 	}, nil
 }
 
-// SetPrerequisiteTask 等保持不变（略）...
 func (s *taskService) SetPrerequisiteTask(userID, prerequisiteID, taskID uint64) (*dto.DependencyResponse, error) {
-	if err := s.checkTaskOwnership(userID, taskID); err != nil {
+	var task, prerequisite *models.Task
+	var err error
+	if task, err = s.taskRepo.GetByID(taskID); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrTaskNotFound
+		}
+		log.Printf("failed to get task %d: %v", taskID, err)
+		return nil, ErrInternal
+	}
+	if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpUpdate); err != nil {
 		return nil, err
 	}
-	if err := s.checkTaskOwnership(userID, prerequisiteID); err != nil {
+	if prerequisite, err = s.taskRepo.GetByID(taskID); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrTaskNotFound
+		}
+		log.Printf("failed to get task %d: %v", taskID, err)
+		return nil, ErrInternal
+	}
+	if err = s.checkProjectAccessibility(userID, prerequisite.ProjectID, permission.OpBranch); err != nil {
 		return nil, err
 	}
 
@@ -341,11 +345,20 @@ func (s *taskService) SetPrerequisiteTask(userID, prerequisiteID, taskID uint64)
 }
 
 func (s *taskService) UnsetPrerequisiteTask(userID, prerequisiteID, taskID uint64) error {
-	if err := s.checkTaskOwnership(userID, taskID); err != nil {
+	var task *models.Task
+	var err error
+	if task, err = s.taskRepo.GetByID(taskID); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrTaskNotFound
+		}
+		log.Printf("failed to get task %d: %v", taskID, err)
+		return ErrInternal
+	}
+	if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpUpdate); err != nil {
 		return err
 	}
 
-	err := s.taskRepo.UnsetPrerequisiteTask(prerequisiteID, taskID)
+	err = s.taskRepo.UnsetPrerequisiteTask(prerequisiteID, taskID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return ErrTaskDependencyNotFound
@@ -357,7 +370,16 @@ func (s *taskService) UnsetPrerequisiteTask(userID, prerequisiteID, taskID uint6
 }
 
 func (s *taskService) GetPrerequisites(userID, taskID uint64) ([]*dto.DependencyResponse, error) {
-	if err := s.checkTaskOwnership(userID, taskID); err != nil {
+	task, err := s.taskRepo.GetByID(taskID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrTaskDependencyNotFound
+		}
+		log.Println("Fail to get prerequisites by taskID:", err)
+		return nil, ErrInternal
+	}
+
+	if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpRead); err != nil {
 		return nil, err
 	}
 	prerequisites, err := s.taskRepo.GetPrerequisites(taskID)
@@ -380,7 +402,16 @@ func (s *taskService) GetPrerequisites(userID, taskID uint64) ([]*dto.Dependency
 }
 
 func (s *taskService) GetPostrequisite(userID, taskID uint64) ([]*dto.DependencyResponse, error) {
-	if err := s.checkTaskOwnership(userID, taskID); err != nil {
+	task, err := s.taskRepo.GetByID(taskID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrTaskDependencyNotFound
+		}
+		log.Println("Fail to get prerequisites by taskID:", err)
+		return nil, ErrInternal
+	}
+
+	if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpRead); err != nil {
 		return nil, err
 	}
 	prerequisites, err := s.taskRepo.GetPostrequisites(taskID)

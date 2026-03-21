@@ -12,10 +12,13 @@ type baseRepository struct {
 	db *gorm.DB
 }
 
-func (r *baseRepository) create(model models.Model) error {
+func (r *baseRepository) create(model models.Model) error { //创建记录并分配随机非零 ID
 	var ID uint64
-	for { //分配随机 ID
+	for {
 		ID = rand.Uint64()
+		if ID == 0 {
+			continue
+		}
 		err := r.db.Model(model).Where(ID).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {

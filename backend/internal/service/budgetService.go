@@ -4,6 +4,7 @@ import (
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
+	"LifeNavigator/pkg/permission"
 	"LifeNavigator/pkg/refresh"
 	"LifeNavigator/pkg/scheduler"
 	"context"
@@ -46,8 +47,8 @@ func NewBudgetService(
 		taskBudgetRepo:    taskBudgetRepo,
 		projectBudgetRepo: projectBudgetRepo,
 		accountRepo:       accountRepo,
-		projectRepo:       projectRepo,
 		scheduleService:   scheduleServ,
+		projectBase:       &projectBase{projectRepo: projectRepo},
 	}
 }
 
@@ -57,38 +58,12 @@ type budgetService struct {
 	taskBudgetRepo    repository.TaskBudgetRepository
 	projectBudgetRepo repository.ProjectBudgetRepository
 	accountRepo       repository.AccountRepository
-	projectRepo       repository.ProjectRepository
 	scheduleService   *scheduler.ScheduleService
+	*projectBase
 }
 
-// ---------- 权限检查（从原 service 复制，不改变逻辑）----------
-func (s *budgetService) checkTaskOwnership(userID, taskID uint64) error {
-	owned, err := s.taskRepo.CheckOwnership(userID, taskID)
-	if err != nil {
-		log.Printf("failed to check task ownership %d: %v", taskID, err)
-		return ErrInternal
-	}
-	if !owned {
-		return ErrForbidden
-	}
-	return nil
-}
-
-func (s *budgetService) checkProjectOwnership(userID, projectID uint64) error {
-	owned, err := s.projectRepo.CheckOwnership(userID, projectID)
-	if err != nil {
-		log.Printf("failed to check project ownership %d: %v", projectID, err)
-		return ErrInternal
-	}
-	if !owned {
-		return ErrForbidden
-	}
-	return nil
-}
-
-// ---------- ProjectBudget 相关实现 ----------
 func (s *budgetService) AddBudget(userID, projectID uint64, budget *models.ProjectBudget) error {
-	if err := s.checkProjectOwnership(userID, projectID); err != nil {
+	if err := s.checkProjectAccessibility(userID, projectID, permission.OpCreate); err != nil {
 		return err
 	}
 
@@ -118,7 +93,7 @@ func (s *budgetService) UpdateBudget(userID uint64, budget *models.ProjectBudget
 		return ErrInternal
 	}
 
-	if err := s.checkProjectOwnership(userID, existing.ProjectID); err != nil {
+	if err := s.checkProjectAccessibility(userID, existing.ProjectID, permission.OpUpdate); err != nil {
 		return err
 	}
 
@@ -168,7 +143,7 @@ func (s *budgetService) DeleteBudget(userID, budgetID uint64) error {
 		return ErrInternal
 	}
 
-	if err := s.checkProjectOwnership(userID, existing.ProjectID); err != nil {
+	if err := s.checkProjectAccessibility(userID, existing.ProjectID, permission.OpDelete); err != nil {
 		return err
 	}
 
@@ -197,7 +172,7 @@ func (s *budgetService) DeleteBudget(userID, budgetID uint64) error {
 	})
 }
 
-func (s *budgetService) RefreshBudget(projectID uint64) error {
+func (s *budgetService) RefreshBudget(projectID uint64) error { //TODO 改为基于budgetID更新
 	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
 		project, err := s.projectRepo.GetByID(projectID)
 		if err != nil {
@@ -247,9 +222,6 @@ func (s *budgetService) RefreshBudget(projectID uint64) error {
 
 // ---------- TaskPayment 相关实现 ----------
 func (s *budgetService) AddPayment(userID, taskID uint64, payment *models.TaskPayment) error {
-	if err := s.checkTaskOwnership(userID, taskID); err != nil {
-		return err
-	}
 
 	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
 		task, err := txRepo.Task.GetByID(taskID)
@@ -258,6 +230,10 @@ func (s *budgetService) AddPayment(userID, taskID uint64, payment *models.TaskPa
 				return ErrTaskNotFound
 			}
 			return ErrInternal
+		}
+
+		if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpCreate); err != nil {
+			return err
 		}
 
 		projBudget, err := txRepo.ProjectBudget.GetByID(payment.BudgetID)
@@ -306,8 +282,15 @@ func (s *budgetService) UpdatePayment(userID uint64, payment *models.TaskPayment
 			}
 			return ErrInternal
 		}
-
-		if err := s.checkTaskOwnership(userID, oldPayment.TaskID); err != nil {
+		task, err := txRepo.Task.GetByID(payment.TaskID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrTaskNotFound
+			}
+			log.Printf("fail to get task %d :%v", payment.TaskID, err)
+			return ErrInternal
+		}
+		if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpUpdate); err != nil {
 			return err
 		}
 
@@ -377,7 +360,15 @@ func (s *budgetService) DeletePayment(userID, paymentID uint64) error {
 			return ErrInternal
 		}
 
-		if err := s.checkTaskOwnership(userID, payment.TaskID); err != nil {
+		task, err := txRepo.Task.GetByID(payment.TaskID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return ErrTaskNotFound
+			}
+			log.Printf("fail to get task %d :%v", payment.TaskID, err)
+			return ErrInternal
+		}
+		if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpDelete); err != nil {
 			return err
 		}
 
@@ -412,7 +403,15 @@ func (s *budgetService) DeletePayment(userID, paymentID uint64) error {
 }
 
 func (s *budgetService) GetPaymentByTaskID(userID, taskID uint64) ([]*dto.TaskPaymentResponse, error) {
-	if err := s.checkTaskOwnership(userID, taskID); err != nil {
+	task, err := s.taskRepo.GetByID(taskID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrTaskNotFound
+		}
+		log.Printf("fail to get task %d :%v", taskID, err)
+		return nil, ErrInternal
+	}
+	if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpRead); err != nil {
 		return nil, err
 	}
 	budgets, err := s.taskBudgetRepo.GetByTaskID(taskID)

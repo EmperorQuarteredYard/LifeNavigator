@@ -27,15 +27,15 @@ type ProjectBudgetRequest struct {
 // ProjectResponse 项目详情响应
 type ProjectResponse struct {
 	ID              uint64                   `json:"id"`
-	UserID          uint64                   `json:"user_id"`
+	OwnerID         uint64                   `json:"owner_id"`
 	Name            string                   `json:"name"`
 	Description     string                   `json:"description"`
 	RefreshInterval uint32                   `json:"refresh_interval"`
 	LastRefresh     time.Time                `json:"last_refresh"`
-	MaxTaskID       uint64                   `json:"max_task_id"`
 	CreatedAt       time.Time                `json:"created_at"`
 	UpdatedAt       time.Time                `json:"updated_at"`
 	Budgets         []*ProjectBudgetResponse `json:"budgets,omitempty"`
+	Permission      string                   `json:"permission"`
 }
 
 // ProjectBudgetResponse 项目预算响应

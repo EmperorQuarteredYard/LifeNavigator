@@ -4,6 +4,7 @@ import (
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
+	"LifeNavigator/pkg/permission"
 	"context"
 	"errors"
 	"log"
@@ -26,7 +27,7 @@ func NewProjectService(
 ) ProjectService {
 	return &projectService{
 		transactor:        transactor,
-		projectRepo:       projectRepo,
+		projectBase:       &projectBase{projectRepo: projectRepo},
 		projectBudgetRepo: projectBudgetRepo,
 		taskBudgetRepo:    taskBudgetRepo,
 		taskRepo:          taskRepo,
@@ -35,26 +36,17 @@ func NewProjectService(
 
 type projectService struct {
 	transactor        repository.Transactor
-	projectRepo       repository.ProjectRepository
 	projectBudgetRepo repository.ProjectBudgetRepository
 	taskBudgetRepo    repository.TaskBudgetRepository
 	taskRepo          repository.TaskRepository
-	budgetService     BudgetService
-}
-
-func (s *projectService) checkProjectOwnership(projectID uint64, userID uint64) error {
-	owned, err := s.projectRepo.CheckOwnership(userID, projectID)
-	if err != nil {
-		log.Printf("failed to check project ownership %d: %v", projectID, err)
-		return ErrInternal
-	}
-	if !owned {
-		return ErrForbidden
-	}
-	return nil
+	*projectBase
 }
 
 func (s *projectService) Create(userID uint64, project *models.Project) (*dto.ProjectResponse, error) {
+	if userID == 0 {
+		return nil, ErrForbidden
+	}
+	project.Owner = userID
 	err := s.projectRepo.Create(project, []uint64{userID})
 	if err != nil {
 		log.Printf("failed to create project: %v", err)
@@ -64,20 +56,20 @@ func (s *projectService) Create(userID uint64, project *models.Project) (*dto.Pr
 	return &dto.ProjectResponse{
 		ID:              project.ID,
 		Name:            project.Name,
+		OwnerID:         userID,
 		Description:     project.Description,
 		RefreshInterval: project.RefreshInterval,
 		LastRefresh:     project.LastRefresh,
-		MaxTaskID:       project.MaxTaskID,
 		CreatedAt:       project.CreatedAt,
 		UpdatedAt:       project.UpdatedAt,
+		Permission:      project.Permission.String(),
 	}, nil
 }
 
 func (s *projectService) GetByID(userID, id uint64) (*dto.ProjectResponse, error) {
-	if err := s.checkProjectOwnership(id, userID); err != nil {
+	if err := s.checkProjectAccessibility(userID, id, permission.OpRead); err != nil {
 		return nil, err
 	}
-
 	project, err := s.projectRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -106,10 +98,10 @@ func (s *projectService) GetByID(userID, id uint64) (*dto.ProjectResponse, error
 		Description:     project.Description,
 		RefreshInterval: project.RefreshInterval,
 		LastRefresh:     project.LastRefresh,
-		MaxTaskID:       project.MaxTaskID,
 		CreatedAt:       project.CreatedAt,
 		UpdatedAt:       project.UpdatedAt,
 		Budgets:         dtoBudgets,
+		Permission:      project.Permission.String(),
 	}, nil
 }
 
@@ -122,15 +114,24 @@ func (s *projectService) ListByUserID(userID uint64, offset, limit int) (*dto.Pr
 
 	items := make([]*dto.ProjectResponse, len(projects))
 	for i, p := range projects {
+		if p.Owner == userID {
+			if !p.Permission.Has(permission.RoleOwner, permission.OpRead) {
+				continue
+			}
+		} else {
+			if !p.Permission.Has(permission.RoleWorkmate, permission.OpRead) {
+				continue
+			}
+		}
 		items[i] = &dto.ProjectResponse{
 			ID:              p.ID,
 			Name:            p.Name,
 			Description:     p.Description,
 			RefreshInterval: p.RefreshInterval,
 			LastRefresh:     p.LastRefresh,
-			MaxTaskID:       p.MaxTaskID,
 			CreatedAt:       p.CreatedAt,
 			UpdatedAt:       p.UpdatedAt,
+			Permission:      p.Permission.String(),
 		}
 	}
 	return &dto.ProjectListResponse{Items: items, Total: int64(len(items))}, nil
@@ -148,6 +149,7 @@ func (s *projectService) Update(userID uint64, project *models.Project) error {
 		return ErrInternal
 	}
 	// 调度更新已移至 budgetService，此处不再处理
+	//todo 禁止清理自己的访问权
 	return nil
 }
 

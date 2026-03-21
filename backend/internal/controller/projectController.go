@@ -21,7 +21,9 @@ func NewProjectController(projectServ service.ProjectService) *ProjectController
 		BaseController: &BaseController{},
 	}
 }
-
+func (ctl *ProjectController) AddPermittedUser(c *gin.Context) {
+	//TODO
+}
 func (ctl *ProjectController) CreateProject(c *gin.Context) {
 	var req dto.CreateProjectRequest
 	if !ctl.BindJSON(c, &req) {
@@ -81,7 +83,7 @@ func (ctl *ProjectController) GetProjectsByUser(c *gin.Context) {
 	ctl.Success(c, projects)
 }
 
-func (ctl *ProjectController) UpdateProject(c *gin.Context) {
+func (ctl *ProjectController) UpdateProject(c *gin.Context) { //只有拥有者(Owner)可以操作
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {

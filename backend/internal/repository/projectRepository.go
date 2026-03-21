@@ -2,6 +2,7 @@ package repository
 
 import (
 	"LifeNavigator/internal/models"
+	"LifeNavigator/pkg/permission"
 	"LifeNavigator/pkg/scheduler"
 	"errors"
 	"time"
@@ -17,6 +18,7 @@ type ProjectRepository interface {
 	Delete(id uint64) error
 	CheckOwnership(userID, projectID uint64) (bool, error)
 	GetRefreshInformation(page, pageSize int) (list []*scheduler.Schedule, total int64, err error)
+	CheckAccessibility(userID uint64, projectID uint64, operation permission.Operation, isUserGuest bool) (bool, error)
 }
 
 func NewProjectRepository(db *gorm.DB) ProjectRepository {
@@ -25,6 +27,49 @@ func NewProjectRepository(db *gorm.DB) ProjectRepository {
 
 type projectRepository struct {
 	*baseRepository
+}
+
+func (r *projectRepository) CheckAccessibility(userID uint64, projectID uint64, operation permission.Operation, isUserGuest bool) (bool, error) {
+	var project models.Project
+
+	err := r.db.Where("id = ?", projectID).First(&project).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, ErrNotFound
+		}
+		return false, err
+	}
+	switch {
+	case project.Owner == userID:
+		if project.Permission.Has(permission.RoleOwner, operation) {
+			return true, nil
+		}
+		return false, nil
+	default:
+		var count int64
+		err = r.db.Table("project_users").
+			Where("project_id = ? AND user_id = ?", projectID, userID).
+			Count(&count).Error
+		if err != nil {
+			return false, err
+		}
+		if count > 0 {
+			if project.Permission.Has(permission.RoleWorkmate, operation) {
+				return true, nil
+			}
+		}
+
+		if isUserGuest {
+			if project.Permission.Has(permission.RoleGuest, operation) {
+				return true, nil
+			}
+			return false, nil
+		}
+		if project.Permission.Has(permission.RoleViewer, operation) {
+			return true, nil
+		}
+		return false, nil
+	}
 }
 
 func (r *projectRepository) GetRefreshInformation(page, pageSize int) (list []*scheduler.Schedule, total int64, err error) {
@@ -69,8 +114,8 @@ func (r *projectRepository) GetRefreshInformation(page, pageSize int) (list []*s
 
 func (r *projectRepository) CheckOwnership(userID, projectID uint64) (bool, error) {
 	var count int64
-	err := r.db.Table("project_users").
-		Where("user_id = ? AND project_id = ?", userID, projectID).
+	err := r.db.Model(&models.Project{}).
+		Where("owner = ? AND id = ?", userID, projectID).
 		Count(&count).Error
 	if err != nil {
 		return false, err
@@ -115,6 +160,7 @@ func (r *projectRepository) ListByUserID(userID uint64, offset, limit int) ([]mo
 		Where("project_users.user_id = ?", userID).
 		Offset(offset).
 		Limit(limit).
+		Order("id asc").
 		Find(&projects)
 	return projects, result.Error
 }

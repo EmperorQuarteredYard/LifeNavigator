@@ -5,6 +5,7 @@ import (
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/kanbanStatus"
+	"LifeNavigator/pkg/permission"
 	"errors"
 	"log"
 )
@@ -18,13 +19,19 @@ type KanbanService interface {
 	GetKanbanTasks(userID, kanbanID uint64, status *uint8, page, pageSize int) (*dto.KanbanTaskListResponse, error)
 	GetDefaultKanbanTasks(userID uint64, status *uint8, page, pageSize int) (*dto.KanbanTaskListResponse, error)
 	SetDefaultKanban(userID, kanbanID uint64) error
+	AddProjectInCheck(userID, projectID, kanbanID uint64) error
 }
 
 type kanbanService struct {
 	kanbanRepo  repository.KanbanRepository
-	projectRepo repository.ProjectRepository
 	taskRepo    repository.TaskRepository
 	taskPayRepo repository.TaskBudgetRepository
+	*projectBase
+}
+
+func (s *kanbanService) AddProjectInCheck(userID, projectID, kanbanID uint64) error {
+	//TODO implement me
+	panic("implement me")
 }
 
 func NewKanbanService(
@@ -35,7 +42,7 @@ func NewKanbanService(
 ) KanbanService {
 	return &kanbanService{
 		kanbanRepo:  kanbanRepo,
-		projectRepo: projectRepo,
+		projectBase: &projectBase{projectRepo: projectRepo},
 		taskRepo:    taskRepo,
 		taskPayRepo: taskPayRepo,
 	}
@@ -56,13 +63,12 @@ func (s *kanbanService) checkKanbanOwnership(userID, kanbanID uint64) error {
 func (s *kanbanService) filterOwnedProjects(userID uint64, projectIDs []uint64) ([]uint64, error) {
 	var ownedIDs []uint64
 	for _, pid := range projectIDs {
-		owned, err := s.projectRepo.CheckOwnership(userID, pid)
+		err := s.checkProjectAccessibility(pid, userID, permission.OpRead)
 		if err != nil {
-			log.Printf("failed to check project ownership %d: %v", pid, err)
-			return nil, ErrInternal
-		}
-		if owned {
-			ownedIDs = append(ownedIDs, pid)
+			if errors.Is(err, ErrForbidden) {
+				continue
+			}
+			return nil, err
 		}
 	}
 	return ownedIDs, nil
@@ -138,6 +144,10 @@ func (s *kanbanService) GetByID(userID, id uint64) (*dto.KanbanResponse, error) 
 	if err != nil {
 		log.Printf("failed to get kanban project IDs: %v", err)
 		return nil, ErrInternal
+	}
+	projectIDs, err = s.filterOwnedProjects(userID, projectIDs)
+	if err != nil {
+		return nil, err
 	}
 
 	return s.toKanbanResponse(kanban, projectIDs), nil

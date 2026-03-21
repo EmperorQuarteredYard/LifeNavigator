@@ -1,6 +1,7 @@
 package models
 
 import (
+	"LifeNavigator/pkg/permission"
 	"time"
 
 	"gorm.io/gorm"
@@ -12,11 +13,12 @@ type Project struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
 
-	Name            string    `json:"name"`
-	Description     string    `json:"description"`
-	RefreshInterval uint32    `json:"refresh_interval"`
-	LastRefresh     time.Time `json:"last_refresh"` //TODO 这东西得同样地做进预算
-	MaxTaskID       uint64    `json:"MaxTaskID" gorm:"default:0"`
+	Name            string                   `json:"name"`
+	Owner           uint64                   `json:"owner"`
+	Description     string                   `json:"description"`
+	RefreshInterval uint32                   `json:"refresh_interval"`
+	LastRefresh     time.Time                `json:"last_refresh"` //TODO 这东西得迁移进预算/账户
+	Permission      permission.PermissionSet `json:"permission" gorm:"default:31"`
 
 	// 关联的项目预算
 	Budgets []ProjectBudget `gorm:"foreignKey:ProjectID" json:"budgets"`

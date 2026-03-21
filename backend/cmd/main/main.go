@@ -7,14 +7,19 @@ import (
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/internal/router"
 	"LifeNavigator/internal/service"
+	"LifeNavigator/pkg/permission"
 	"LifeNavigator/pkg/roles"
+	"fmt"
 	"log"
 
 	"gorm.io/gorm"
 )
 
 func main() {
-	ServeByRealDatabase()
+	//ServeByRealDatabase()
+	p := permission.FromUint32(0)
+	p.SetRoleAll(permission.RoleOwner)
+	fmt.Println(p)
 }
 
 func ServeByRealDatabase() {
