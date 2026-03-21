@@ -24,3 +24,10 @@ type KanbanProject struct {
 	ProjectID uint64    `gorm:"primaryKey;autoIncrement:false" json:"project_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+func (m *Kanban) SetID(id uint64) {
+	m.ID = id
+}
+func (m *Kanban) GetID() uint64 {
+	return m.ID
+}

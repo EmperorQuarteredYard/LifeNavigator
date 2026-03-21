@@ -3,6 +3,7 @@ package repository
 import (
 	"LifeNavigator/internal/models"
 	"errors"
+	"math/rand/v2"
 
 	"gorm.io/gorm"
 )
@@ -32,6 +33,16 @@ type kanbanRepository struct {
 }
 
 func (r *kanbanRepository) Create(kanban *models.Kanban) error {
+	for { //分配随机 ID
+		kanban.ID = rand.Uint64()
+		err := r.db.Model(kanban).Where(kanban.ID).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				break
+			}
+			return err
+		}
+	}
 	return r.db.Create(kanban).Error
 }
 

@@ -14,3 +14,16 @@ type ProjectBudget struct {
 	Budget    float64 `gorm:"type:decimal(10,2);default:0" json:"budget"` // 预算金额
 	Used      float64 `gorm:"type:decimal(10,2);default:0" json:"used"`   // 已用金额
 }
+
+func (m *ProjectBudget) SetID(id uint64) {
+	m.ID = id
+}
+func (m *ProjectBudget) GetID() uint64 {
+	return m.ID
+}
+func (m *TaskPayment) SetID(id uint64) {
+	m.ID = id
+}
+func (m *TaskPayment) GetID() uint64 {
+	return m.ID
+}

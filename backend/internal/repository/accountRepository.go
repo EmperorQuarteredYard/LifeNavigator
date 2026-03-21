@@ -20,11 +20,11 @@ type AccountRepository interface {
 }
 
 func NewAccountRepository(db *gorm.DB) AccountRepository {
-	return &accountRepository{db: db, updateMaxTry: 3}
+	return &accountRepository{baseRepository: &baseRepository{db: db}, updateMaxTry: 3}
 }
 
 type accountRepository struct {
-	db           *gorm.DB
+	*baseRepository
 	updateMaxTry int
 }
 
@@ -167,7 +167,7 @@ func (a *accountRepository) Create(account *models.Account, userIDs []uint64) (*
 	}
 
 	err := a.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(account).Error; err != nil {
+		if err := a.createWithTX(tx, account); err != nil {
 			return err
 		}
 

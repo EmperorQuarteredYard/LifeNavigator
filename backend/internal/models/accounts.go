@@ -10,3 +10,10 @@ type Account struct {
 	NetBalance float64 `gorm:"type:decimal(10,2);default:0" json:"net_balance"`
 	Version    uint64  `gorm:"not null;default:0"`
 }
+
+func (m *Account) SetID(id uint64) {
+	m.ID = id
+}
+func (m *Account) GetID() uint64 {
+	return m.ID
+}

@@ -9,52 +9,24 @@ import (
 
 // UserRepository 定义了用户数据访问接口
 type UserRepository interface {
-	// Create 创建新用户
-	// 如果用户名已存在，返回 ErrRecordExist
-	Create(user *models.User) error
-
-	// GetByID 根据主键 ID 查询用户
-	// 返回用户对象指针，若记录不存在返回 ErrNotFound
-	GetByID(id uint64) (*models.User, error)
-
-	// GetByUsername 根据用户名查询用户
-	// 返回用户对象指针，若记录不存在返回 ErrNotFound
-	GetByUsername(username string) (*models.User, error)
-
-	// GetByEmail 根据邮箱查询用户
-	// 返回用户对象指针，若记录不存在返回 ErrNotFound
-	GetByEmail(email string) (*models.User, error)
-
-	// Update 更新用户信息
-	// 根据用户对象的 ID 进行更新，若记录不存在返回 ErrNotFound
-	Update(user *models.User) error
-
-	// UpdateProfile 更新用户画像
-	// profile最大长度为2000字符，若用户不存在返回 ErrNotFound
-	UpdateProfile(userID uint64, profile string) error
-
-	// Delete 软删除用户（若模型支持软删除）
-	// 若记录不存在返回 ErrNotFound
-	Delete(id uint64) error
-
-	// List 分页列出所有用户（未软删除的）
-	List(offset, limit int) ([]models.User, error)
-
-	// HardDeleteById 从数据库中永久删除指定ID的用户记录
-	// 该操作不可逆，请谨慎使用；若用户不存在返回 ErrNotFound
-	HardDeleteById(id uint64) error
-
-	// SoftDeleteById 软删除指定ID的用户
-	// 如果模型支持软删除，则将 DeletedAt 设置为当前时间；若用户不存在返回 ErrNotFound
-	SoftDeleteById(id uint64) error
+	Create(user *models.User) error                      //如果用户名已存在，返回 ErrRecordExist
+	GetByID(id uint64) (*models.User, error)             // 根据主键 ID 查询用户,返回用户对象指针，若记录不存在返回 ErrNotFound
+	GetByUsername(username string) (*models.User, error) // 返回用户对象指针，若记录不存在返回 ErrNotFound
+	GetByEmail(email string) (*models.User, error)       // 返回用户对象指针，若记录不存在返回 ErrNotFound
+	Update(user *models.User) error                      // 根据用户对象的 ID 进行更新，若记录不存在返回 ErrNotFound
+	UpdateProfile(userID uint64, profile string) error   // profile最大长度为2000字符，超出则裁剪多出部分，若用户不存在返回 ErrNotFound
+	Delete(id uint64) error                              // 软删除，若记录不存在返回 ErrNotFound
+	List(offset, limit int) ([]models.User, error)       // 分页列出所有用户（未软删除的）
+	HardDeleteById(id uint64) error                      // 该操作不可逆，请谨慎使用；若用户不存在返回 ErrNotFound
+	SoftDeleteById(id uint64) error                      // 若用户不存在返回 ErrNotFound
 }
 
 type userRepository struct {
-	db *gorm.DB
+	*baseRepository
 }
 
 func NewUserRepository(db *gorm.DB) UserRepository {
-	return &userRepository{db: db}
+	return &userRepository{baseRepository: &baseRepository{db: db}}
 }
 func (r *userRepository) HardDeleteById(id uint64) error {
 	result := r.db.Unscoped().Delete(&models.User{}, id)
@@ -86,12 +58,8 @@ func (r *userRepository) Create(user *models.User) error {
 	if count > 0 {
 		return ErrRecordExist
 	}
-	result := r.db.Create(user)
-	if result.Error != nil {
-		// 可根据错误类型包装为自定义错误，例如判断是否唯一冲突
-		return result.Error
-	}
-	return nil
+
+	return r.create(user)
 }
 
 func (r *userRepository) GetByID(id uint64) (*models.User, error) {

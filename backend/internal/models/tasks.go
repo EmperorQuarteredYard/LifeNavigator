@@ -24,3 +24,10 @@ type TaskDependency struct {
 	PrerequisiteID uint64    `gorm:"not null;index:dependency" json:"prerequisite_id"` // 前置的任务 ID，外键
 	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`                 // 创建时间，自动管理
 }
+
+func (m *Task) SetID(id uint64) {
+	m.ID = id
+}
+func (m *Task) GetID() uint64 {
+	return m.ID
+}

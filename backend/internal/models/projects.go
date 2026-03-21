@@ -22,3 +22,10 @@ type Project struct {
 	Budgets []ProjectBudget `gorm:"foreignKey:ProjectID" json:"budgets"`
 	Users   []User          `gorm:"many2many:account_users;"`
 }
+
+func (m *Project) SetID(id uint64) {
+	m.ID = id
+}
+func (m *Project) GetID() uint64 {
+	return m.ID
+}

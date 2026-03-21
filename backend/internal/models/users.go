@@ -24,3 +24,10 @@ type User struct {
 	Accounts []Account `gorm:"many2many:account_users;"`
 	Projects []Project `gorm:"many2many:project_users;"`
 }
+
+func (m *User) SetID(id uint64) {
+	m.ID = id
+}
+func (m *User) GetID() uint64 {
+	return m.ID
+}

@@ -24,11 +24,11 @@ type ProjectBudgetRepository interface {
 
 // NewProjectBudgetRepository 创建一个 ProjectBudgetRepository 实例
 func NewProjectBudgetRepository(db *gorm.DB) ProjectBudgetRepository {
-	return &projectBudgetRepository{db: db}
+	return &projectBudgetRepository{baseRepository: &baseRepository{db: db}}
 }
 
 type projectBudgetRepository struct {
-	db *gorm.DB
+	*baseRepository
 }
 
 func (r *projectBudgetRepository) SetUsedZero(budgetID, projectID uint64) error {
@@ -66,8 +66,7 @@ func (r *projectBudgetRepository) UpdateAccountID(budgetID uint64, accountID uin
 		Update("account_id", accountID).Error
 }
 func (r *projectBudgetRepository) Create(budget *models.ProjectBudget) error {
-	result := r.db.Create(budget)
-	return result.Error
+	return r.create(budget)
 }
 
 func (r *projectBudgetRepository) GetByID(id uint64) (*models.ProjectBudget, error) {

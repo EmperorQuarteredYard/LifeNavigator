@@ -21,11 +21,11 @@ type TaskBudgetRepository interface {
 
 // NewTaskPaymentRepository 创建一个 TaskBudgetRepository 实例
 func NewTaskPaymentRepository(db *gorm.DB) TaskBudgetRepository {
-	return &taskBudgetRepository{db: db}
+	return &taskBudgetRepository{baseRepository: &baseRepository{db: db}}
 }
 
 type taskBudgetRepository struct {
-	db *gorm.DB
+	*baseRepository
 }
 
 func (r *taskBudgetRepository) ListByAccountID(accountID uint64, startTime, endTime time.Time) (payments []models.TaskPayment, err error) {
@@ -46,12 +46,8 @@ func (r *taskBudgetRepository) ListByAccountID(accountID uint64, startTime, endT
 }
 
 func (r *taskBudgetRepository) Create(budget *models.TaskPayment) error {
-	result := r.db.Create(budget)
-	if result.Error != nil {
-		// 可根据错误类型封装自定义错误，例如唯一索引冲突
-		return result.Error
-	}
-	return nil
+
+	return r.create(budget)
 }
 
 func (r *taskBudgetRepository) GetByID(id uint64) (*models.TaskPayment, error) {

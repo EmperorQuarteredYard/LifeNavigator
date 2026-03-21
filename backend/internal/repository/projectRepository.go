@@ -20,11 +20,11 @@ type ProjectRepository interface {
 }
 
 func NewProjectRepository(db *gorm.DB) ProjectRepository {
-	return &projectRepository{db: db}
+	return &projectRepository{baseRepository: &baseRepository{db: db}}
 }
 
 type projectRepository struct {
-	db *gorm.DB
+	*baseRepository
 }
 
 func (r *projectRepository) GetRefreshInformation(page, pageSize int) (list []*scheduler.Schedule, total int64, err error) {
@@ -84,7 +84,7 @@ func (r *projectRepository) Create(project *models.Project, userIDs []uint64) er
 	}
 
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(project).Error; err != nil {
+		if err := r.createWithTX(tx, project); err != nil {
 			return err
 		}
 

@@ -8,38 +8,20 @@ import (
 )
 
 type InviteCodeRepository interface {
-	//Create 创建一个InviteCode对象，其中ID强制置零后添加
-	Create(code *models.InviteCode) error
-
-	// UseCodeByToken 使用给定的令牌来消耗一个邀请码。
-	//
-	// 返回的错误包括：
-	//   - ErrNotFound：指定的 token 不存在。
-	//   - ErrInviteCodeUsed：邀请码已被用完（Count >= Budget）。
-	//   - 其他数据库错误。
-	UseCodeByToken(token string) error
-
-	// Delete 删除指定的邀请码记录。
-	// 该方法执行硬删除（直接从数据库中移除记录）。
-	// 如果记录不存在，返回 ErrNotFound；其他数据库错误原样返回。
-	Delete(code *models.InviteCode) error
-
-	// FindByToken 根据令牌查询邀请码。
-	// 返回匹配的邀请码指针；如果记录不存在，返回 ErrNotFound。
-	FindByToken(token string) (*models.InviteCode, error)
-
-	// FindByID 根据ID查询邀请码。
-	// 返回匹配的邀请码指针；如果记录不存在，返回 ErrNotFound。
-	FindByID(id int64) (*models.InviteCode, error)
-	GetByUserID(uid uint64, offset, limit int) ([]models.InviteCode, error)
+	Create(code *models.InviteCode) error                                   // 创建一个 InviteCode对象
+	UseCodeByToken(token string) error                                      // 使用给定的令牌来消耗一个邀请码
+	Delete(code *models.InviteCode) error                                   // 硬删除指定的邀请码记录
+	FindByToken(token string) (*models.InviteCode, error)                   //根据令牌查询邀请码
+	FindByID(id int64) (*models.InviteCode, error)                          // 根据ID查询邀请码。
+	GetByUserID(uid uint64, offset, limit int) ([]models.InviteCode, error) //根据创建者ID查询邀请码。
 }
 
 type inviteCodeRepository struct {
-	db *gorm.DB
+	*baseRepository
 }
 
 func NewInviteCodeRepository(db *gorm.DB) InviteCodeRepository {
-	return &inviteCodeRepository{db: db}
+	return &inviteCodeRepository{baseRepository: &baseRepository{db: db}}
 }
 
 func (r *inviteCodeRepository) GetByUserID(userID uint64, offset, limit int) ([]models.InviteCode, error) {
@@ -56,7 +38,7 @@ func (r *inviteCodeRepository) GetByUserID(userID uint64, offset, limit int) ([]
 }
 
 func (r *inviteCodeRepository) Create(code *models.InviteCode) error {
-	err := r.db.Create(code).Error
+	err := r.create(code)
 	if err != nil {
 		return err
 	}

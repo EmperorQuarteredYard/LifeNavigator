@@ -30,11 +30,11 @@ type TaskRepository interface {
 }
 
 func NewTaskRepository(db *gorm.DB) TaskRepository {
-	return &taskRepository{db: db}
+	return &taskRepository{baseRepository: &baseRepository{db: db}}
 }
 
 type taskRepository struct {
-	db *gorm.DB
+	*baseRepository
 }
 
 func (r *taskRepository) CheckOwnership(userID, taskID uint64) (bool, error) {
@@ -178,11 +178,7 @@ func (r *taskRepository) GetByDeadlineAfter(projectID uint64, deadline time.Time
 }
 
 func (r *taskRepository) Create(task *models.Task) error {
-	result := r.db.Create(task)
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
+	return r.create(task)
 }
 
 func (r *taskRepository) GetByID(id uint64) (*models.Task, error) {

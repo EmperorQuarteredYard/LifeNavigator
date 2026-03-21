@@ -13,3 +13,10 @@ type InviteCode struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
+
+func (m *InviteCode) SetID(id uint64) {
+	m.ID = id
+}
+func (m *InviteCode) GetID() uint64 {
+	return m.ID
+}

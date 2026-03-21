@@ -1,6 +1,8 @@
 package repository
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
 	ErrNotFound         = errors.New("record not found")
