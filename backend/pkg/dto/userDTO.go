@@ -25,6 +25,7 @@ type UserProfile struct {
 	Nickname  string    `json:"nickname"`
 	Email     string    `json:"email"`
 	Phone     string    `json:"phone"`
+	Avatar    string    `json:"avatar"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

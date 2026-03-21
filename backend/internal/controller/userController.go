@@ -7,7 +7,11 @@ import (
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/errcode"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,6 +27,79 @@ func NewUserController(userService service.UserService, inviteService service.In
 		userService:   userService,
 		inviteService: inviteService,
 	}
+}
+
+// UploadAvatar 上传头像
+func (ctl *UserController) UploadAvatar(c *gin.Context) {
+	authUser, ok := ctl.GetAuthUser(c)
+	if !ok {
+		return
+	}
+
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		ctl.Code(c, errcode.StatusInvalidParams)
+		return
+	}
+
+	const maxSize = 2 << 20 // 2MB
+	if file.Size > maxSize {
+		ctl.Code(c, errcode.StatusAvatarImageTooLarge)
+		return
+	}
+
+	allowedTypes := map[string]bool{
+		"image/jpeg": true,
+		"image/png":  true,
+		"image/gif":  true,
+	}
+	if !allowedTypes[file.Header.Get("Content-Type")] {
+		ctl.Code(c, errcode.StatusInvalidParams)
+		return
+	}
+
+	storageRoot := os.Getenv("AVATAR_STORAGE_PATH")
+	if storageRoot == "" {
+		storageRoot = "uploads/avatars"
+	}
+	// 确保目录存在
+	if err := os.MkdirAll(storageRoot, 0755); err != nil {
+		ctl.ServerError(c)
+		return
+	}
+
+	// 生成唯一文件名
+	ext := filepath.Ext(file.Filename)
+	if ext == "" {
+		ext = ".jpg"
+	}
+	uniqueName := fmt.Sprintf("%d_%d%s", authUser.UserID, time.Now().UnixNano(), ext)
+	savePath := filepath.Join(storageRoot, uniqueName)
+
+	// 保存文件
+	if err := c.SaveUploadedFile(file, savePath); err != nil {
+		ctl.ServerError(c)
+		return
+	}
+
+	// 生成 URL：相对路径，与静态文件服务挂载点一致
+	avatarURL := fmt.Sprintf("/uploads/avatars/%s", uniqueName)
+
+	if err := ctl.userService.UpdateAvatar(authUser.UserID, avatarURL); err != nil {
+		// 若更新失败，删除已上传的文件
+		os.Remove(savePath)
+		switch {
+		case errors.Is(err, service.ErrUserNotFound):
+			ctl.Code(c, errcode.StatusUserNotFound)
+		default:
+			ctl.ServerError(c)
+		}
+		return
+	}
+
+	ctl.Success(c, gin.H{
+		"avatar_url": avatarURL,
+	})
 }
 
 // Register 用户注册（需提供有效邀请码）
@@ -135,6 +212,7 @@ func (ctl *UserController) GetUser(c *gin.Context) {
 		Email:     user.Email,
 		Phone:     user.Phone,
 		CreatedAt: user.CreatedAt,
+		Avatar:    user.Avatar,
 	})
 }
 

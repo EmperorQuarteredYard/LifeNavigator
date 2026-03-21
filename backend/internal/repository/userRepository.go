@@ -19,6 +19,7 @@ type UserRepository interface {
 	List(offset, limit int) ([]models.User, error)       // 分页列出所有用户（未软删除的）
 	HardDeleteById(id uint64) error                      // 该操作不可逆，请谨慎使用；若用户不存在返回 ErrNotFound
 	SoftDeleteById(id uint64) error                      // 若用户不存在返回 ErrNotFound
+	UpdateAvatar(userID uint64, avatarURL string) error  // 更新头像字段
 }
 
 type userRepository struct {
@@ -28,6 +29,7 @@ type userRepository struct {
 func NewUserRepository(db *gorm.DB) UserRepository {
 	return &userRepository{baseRepository: &baseRepository{db: db}}
 }
+
 func (r *userRepository) HardDeleteById(id uint64) error {
 	result := r.db.Unscoped().Delete(&models.User{}, id)
 	if result.Error != nil {
@@ -43,6 +45,16 @@ func (r *userRepository) HardDeleteById(id uint64) error {
 // 假设 models.User 包含 gorm.DeletedAt 字段，GORM 会自动执行软删除。
 func (r *userRepository) SoftDeleteById(id uint64) error {
 	result := r.db.Delete(&models.User{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+func (r *userRepository) UpdateAvatar(userID uint64, avatarURL string) error {
+	result := r.db.Model(&models.User{}).Where("id = ?", userID).Update("avatar", avatarURL)
 	if result.Error != nil {
 		return result.Error
 	}

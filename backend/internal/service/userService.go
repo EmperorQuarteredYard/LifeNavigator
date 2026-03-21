@@ -21,6 +21,7 @@ type UserService interface {
 	HardDeleteByID(id uint64, currentUserID uint64) error                              // 硬删除：仅自己可执行（或管理员，这里简化）
 	SoftDeleteByID(id uint64, currentUserID uint64) error                              // 软删除：仅自己可执行
 	RefreshToken(refreshToken string) (accessToken, newRefreshToken string, err error) // 刷新令牌无需用户 ID
+	UpdateAvatar(userID uint64, avatarURL string) error                                // 更新头像字段
 }
 
 type userService struct {
@@ -29,6 +30,18 @@ type userService struct {
 
 func NewUserService(userRepo repository.UserRepository) UserService {
 	return &userService{userRepo: userRepo}
+}
+
+func (s *userService) UpdateAvatar(userID uint64, avatarURL string) error {
+	// 检查用户是否存在（可选，直接调用 repo 即可）
+	if err := s.userRepo.UpdateAvatar(userID, avatarURL); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrUserNotFound
+		}
+		log.Printf("failed to update avatar for user %d: %v", userID, err)
+		return ErrInternal
+	}
+	return nil
 }
 
 func (s *userService) Register(user *models.User) error {

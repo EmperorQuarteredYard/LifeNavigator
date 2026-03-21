@@ -20,6 +20,10 @@ type User struct {
 	Email    string `json:"email"`
 	Phone    string `json:"phone"`
 	Profile  string `json:"profile" gorm:"type:varchar(2000);default:''"` // 用户画像，最大2000字符
+	Avatar   string `json:"avatar"`
+	//"Pixels:(#ff0000)FFFFFFFFFFFFFFFF"表示8x8(十六进制逐行逐列描述是否有颜色，否则为白色)红色纯色,
+	// "LocalPath:avatars/user/3442-24234-24234"本地文件路径
+	//
 
 	Accounts []Account `gorm:"many2many:account_users;"`
 	Projects []Project `gorm:"many2many:project_users;"`

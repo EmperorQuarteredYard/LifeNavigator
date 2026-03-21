@@ -54,6 +54,7 @@ func SetupRouter(
 			public.POST("/register", userCtrl.Register)
 			public.POST("/login", userCtrl.Login)
 			public.POST("/refresh", userCtrl.Refresh)
+			public.Static("/uploads/avatars", os.Getenv("AVATAR_STORAGE_PATH"))
 		}
 
 		// 需要认证的路由
@@ -63,6 +64,7 @@ func SetupRouter(
 			// 用户相关
 			authorized.GET("/users/me", userCtrl.Profile)
 			authorized.GET("/users/:id", userCtrl.GetUser)
+			authorized.POST("/user/avatar", userCtrl.UploadAvatar)
 
 			// 邀请码相关
 			authorized.POST("/invite-codes", inviteCtrl.CreateInviteCode)
@@ -102,7 +104,7 @@ func SetupRouter(
 			authorized.GET("/tasks/:id/prerequisites", taskCtrl.GetPrerequisites)
 			authorized.GET("/tasks/:id/postrequisites", taskCtrl.GetPostrequisites)
 			authorized.POST("/tasks/:id/prerequisites", taskCtrl.SetPrerequisites)
-			authorized.DELETE("/tasks/:id/prerequisites", taskCtrl.UnsetPrerequisites) // 需在body中传prerequisite_id
+			authorized.DELETE("/tasks/:id/prerequisites", taskCtrl.UnsetPrerequisites)
 
 			// 任务付款
 			authorized.POST("/tasks/:id/payments", budgetCTL.SetPayment)
