@@ -1,32 +1,18 @@
 package repository
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"errors"
 
 	"gorm.io/gorm"
 )
 
-// UserRepository 定义了用户数据访问接口
-type UserRepository interface {
-	Create(user *models.User) error                      //如果用户名已存在，返回 ErrRecordExist
-	GetByID(id uint64) (*models.User, error)             // 根据主键 ID 查询用户,返回用户对象指针，若记录不存在返回 ErrNotFound
-	GetByUsername(username string) (*models.User, error) // 返回用户对象指针，若记录不存在返回 ErrNotFound
-	GetByEmail(email string) (*models.User, error)       // 返回用户对象指针，若记录不存在返回 ErrNotFound
-	Update(user *models.User) error                      // 根据用户对象的 ID 进行更新，若记录不存在返回 ErrNotFound
-	UpdateProfile(userID uint64, profile string) error   // profile最大长度为2000字符，超出则裁剪多出部分，若用户不存在返回 ErrNotFound
-	Delete(id uint64) error                              // 软删除，若记录不存在返回 ErrNotFound
-	List(offset, limit int) ([]models.User, error)       // 分页列出所有用户（未软删除的）
-	HardDeleteById(id uint64) error                      // 该操作不可逆，请谨慎使用；若用户不存在返回 ErrNotFound
-	SoftDeleteById(id uint64) error                      // 若用户不存在返回 ErrNotFound
-	UpdateAvatar(userID uint64, avatarURL string) error  // 更新头像字段
-}
-
 type userRepository struct {
 	*baseRepository
 }
 
-func NewUserRepository(db *gorm.DB) UserRepository {
+func NewUserRepository(db *gorm.DB) repositoryInte.UserRepository {
 	return &userRepository{baseRepository: &baseRepository{db: db}}
 }
 
@@ -36,7 +22,7 @@ func (r *userRepository) HardDeleteById(id uint64) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return ErrNotFound
+		return repositoryInte.ErrNotFound
 	}
 	return nil
 }
@@ -49,7 +35,7 @@ func (r *userRepository) SoftDeleteById(id uint64) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return ErrNotFound
+		return repositoryInte.ErrNotFound
 	}
 	return nil
 }
@@ -59,7 +45,7 @@ func (r *userRepository) UpdateAvatar(userID uint64, avatarURL string) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return ErrNotFound
+		return repositoryInte.ErrNotFound
 	}
 	return nil
 }
@@ -68,7 +54,7 @@ func (r *userRepository) Create(user *models.User) error {
 	var count int64
 	r.db.Model(&models.User{}).Where("username = ?", user.Username).Count(&count)
 	if count > 0 {
-		return ErrRecordExist
+		return repositoryInte.ErrRecordExist
 	}
 
 	return r.create(user)
@@ -79,7 +65,7 @@ func (r *userRepository) GetByID(id uint64) (*models.User, error) {
 	result := r.db.First(&user, id)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, result.Error
 	}
@@ -91,7 +77,7 @@ func (r *userRepository) GetByUsername(username string) (*models.User, error) {
 	result := r.db.Where("username = ?", username).First(&user)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, result.Error
 	}
@@ -103,7 +89,7 @@ func (r *userRepository) GetByEmail(email string) (*models.User, error) {
 	result := r.db.Where("email = ?", email).First(&user)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, result.Error
 	}
@@ -116,7 +102,7 @@ func (r *userRepository) Update(user *models.User) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return ErrNotFound
+		return repositoryInte.ErrNotFound
 	}
 	return nil
 }
@@ -131,7 +117,7 @@ func (r *userRepository) UpdateProfile(userID uint64, profile string) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return ErrNotFound
+		return repositoryInte.ErrNotFound
 	}
 	return nil
 }
@@ -142,7 +128,7 @@ func (r *userRepository) Delete(id uint64) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return ErrNotFound
+		return repositoryInte.ErrNotFound
 	}
 	return nil
 }

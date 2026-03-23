@@ -1,6 +1,7 @@
 package service
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
@@ -72,7 +73,7 @@ func (s *projectService) GetByID(userID, id uint64) (*dto.ProjectResponse, error
 	}
 	project, err := s.projectRepo.GetByID(id)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrProjectNotFound
 		}
 		log.Printf("failed to get project %d: %v", id, err)
@@ -142,7 +143,7 @@ func (s *projectService) Update(userID uint64, project *models.Project) error {
 		return err
 	}
 	if err := s.projectRepo.Update(project); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrProjectNotFound
 		}
 		log.Printf("failed to update project %d: %v", project.ID, err)
@@ -183,7 +184,7 @@ func (s *projectService) Delete(userID, id uint64) error {
 		}
 
 		if err := txRepo.Project.Delete(id); err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrProjectNotFound
 			}
 			log.Printf("failed to delete project %d: %v", id, err)

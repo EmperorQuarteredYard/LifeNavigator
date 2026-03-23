@@ -1,6 +1,7 @@
 package service
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/middleWare/jwt"
@@ -35,7 +36,7 @@ func NewUserService(userRepo repository.UserRepository) UserService {
 func (s *userService) UpdateAvatar(userID uint64, avatarURL string) error {
 	// 检查用户是否存在（可选，直接调用 repo 即可）
 	if err := s.userRepo.UpdateAvatar(userID, avatarURL); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrUserNotFound
 		}
 		log.Printf("failed to update avatar for user %d: %v", userID, err)
@@ -59,7 +60,7 @@ func (s *userService) Register(user *models.User) error {
 	user.Password = string(hashed)
 	user.Role = "user" //TODO 这里之后要做成允许注册为管理员、开发者等
 	if err := s.userRepo.Create(user); err != nil {
-		if errors.Is(err, repository.ErrRecordExist) {
+		if errors.Is(err, repositoryInte.ErrRecordExist) {
 			return ErrUserNameExists
 		}
 		log.Printf("failed to create user: %v", err)
@@ -72,7 +73,7 @@ func (s *userService) Login(username, password string) (*models.User, error) {
 	user, err := s.userRepo.GetByUsername(username)
 	log.Println("用户登录:" + username + "/" + password)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrUserNotFound
 		}
 		log.Printf("failed to get user by username: %v", err)
@@ -91,7 +92,7 @@ func (s *userService) GetByID(id uint64, currentUserID uint64) (*models.User, er
 	}
 	user, err := s.userRepo.GetByID(id)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrUserNotFound
 		}
 		log.Printf("failed to get user by id %d: %v", id, err)
@@ -105,7 +106,7 @@ func (s *userService) GetByUsername(username string, currentUserID uint64) (*mod
 	// 更合理：先查出用户，再比对 ID
 	user, err := s.userRepo.GetByUsername(username)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrUserNotFound
 		}
 		log.Printf("failed to get user by username: %v", err)
@@ -120,7 +121,7 @@ func (s *userService) GetByUsername(username string, currentUserID uint64) (*mod
 func (s *userService) GetByEmail(email string, currentUserID uint64) (*models.User, error) {
 	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrUserNotFound
 		}
 		log.Printf("failed to get user by email: %v", err)
@@ -139,7 +140,7 @@ func (s *userService) Update(user *models.User, currentUserID uint64) error {
 	}
 	// 可选：不允许修改某些字段，如密码需单独处理，这里简化
 	if err := s.userRepo.Update(user); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrUserNotFound
 		}
 		log.Printf("failed to update user %d: %v", user.ID, err)
@@ -153,7 +154,7 @@ func (s *userService) HardDeleteByID(id uint64, currentUserID uint64) error {
 		return ErrForbidden
 	}
 	if err := s.userRepo.HardDeleteById(id); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrUserNotFound
 		}
 		log.Printf("failed to hard delete user %d: %v", id, err)
@@ -167,7 +168,7 @@ func (s *userService) SoftDeleteByID(id uint64, currentUserID uint64) error {
 		return ErrForbidden
 	}
 	if err := s.userRepo.SoftDeleteById(id); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrUserNotFound
 		}
 		log.Printf("failed to soft delete user %d: %v", id, err)
@@ -183,7 +184,7 @@ func (s *userService) RefreshToken(refreshToken string) (string, string, error) 
 	}
 	user, err := s.userRepo.GetByID(claims.UserID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return "", "", ErrUserNotFound
 		}
 		log.Printf("failed to get user for refresh: %v", err)

@@ -17,6 +17,13 @@ type Task struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	//TODO 这东西之后得改成支持嵌套的，但是...什么支付啦预算啦权限(还没做，好一点)又得大改
 }
+
+type TaskStatus struct {
+	TaskID     uint64
+	Status     uint8
+	HoldBy     uint64
+	HolderType string //"Agent"/"Human"
+}
 type TaskDependency struct {
 	UserID         uint64    `json:"user_id" gorm:"not null"`
 	ProjectID      uint64    `json:"project_id" gorm:"not null"`

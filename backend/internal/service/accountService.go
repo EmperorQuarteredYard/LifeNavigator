@@ -1,6 +1,7 @@
 package service
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
@@ -47,7 +48,7 @@ type accountService struct {
 func (s *accountService) GetUserName(userID uint64) (string, error) {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return "", ErrUserNotFound
 		}
 		log.Printf("GetUserName error: %v", err)
@@ -115,7 +116,7 @@ func (s *accountService) AdjustBalance(userID, accountID uint64, amount float64)
 	balance, err := s.accountRepo.AdjustBalance(accountID, amount)
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrNotFound):
+		case errors.Is(err, repositoryInte.ErrNotFound):
 			return 0, ErrAccountNotFound
 		default:
 			log.Printf("AdjustBalance error: %v", err)
@@ -138,7 +139,7 @@ func (s *accountService) GetByAccountID(userID, accountID uint64) (*dto.Account,
 	account, err := s.accountRepo.GetByID(accountID)
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrNotFound):
+		case errors.Is(err, repositoryInte.ErrNotFound):
 			return nil, ErrAccountNotFound
 		default:
 			log.Printf("GetByAccountID error: %v", err)

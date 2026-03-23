@@ -1,6 +1,7 @@
 package service
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
@@ -86,7 +87,7 @@ func (s *budgetService) AddBudget(userID, projectID uint64, budget *models.Proje
 func (s *budgetService) UpdateBudget(userID uint64, budget *models.ProjectBudget) error {
 	existing, err := s.projectBudgetRepo.GetByID(budget.ID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrBudgetNotFound
 		}
 		log.Printf("failed to get budget %d: %v", budget.ID, err)
@@ -100,7 +101,7 @@ func (s *budgetService) UpdateBudget(userID uint64, budget *models.ProjectBudget
 	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
 		oldBudget, err := txRepo.ProjectBudget.GetByID(budget.ID)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrBudgetNotFound
 			}
 			return ErrInternal
@@ -124,7 +125,7 @@ func (s *budgetService) UpdateBudget(userID uint64, budget *models.ProjectBudget
 		}
 
 		if err := txRepo.ProjectBudget.Update(budget); err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrBudgetNotFound
 			}
 			return ErrInternal
@@ -136,7 +137,7 @@ func (s *budgetService) UpdateBudget(userID uint64, budget *models.ProjectBudget
 func (s *budgetService) DeleteBudget(userID, budgetID uint64) error {
 	existing, err := s.projectBudgetRepo.GetByID(budgetID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrBudgetNotFound
 		}
 		log.Printf("failed to get budget %d: %v", budgetID, err)
@@ -150,7 +151,7 @@ func (s *budgetService) DeleteBudget(userID, budgetID uint64) error {
 	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
 		budget, err := txRepo.ProjectBudget.GetByID(budgetID)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrBudgetNotFound
 			}
 			return ErrInternal
@@ -163,7 +164,7 @@ func (s *budgetService) DeleteBudget(userID, budgetID uint64) error {
 		}
 
 		if err := txRepo.ProjectBudget.Delete(budgetID); err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrBudgetNotFound
 			}
 			return ErrInternal
@@ -177,7 +178,7 @@ func (s *budgetService) RefreshBudget(projectID uint64) error { //TODO 改为基
 		project, err := s.projectRepo.GetByID(projectID)
 		if err != nil {
 			switch {
-			case errors.Is(err, repository.ErrNotFound):
+			case errors.Is(err, repositoryInte.ErrNotFound):
 				return ErrProjectNotFound
 			default:
 				log.Printf("fail to get project %d :%v", projectID, err)
@@ -187,7 +188,7 @@ func (s *budgetService) RefreshBudget(projectID uint64) error { //TODO 改为基
 		project.LastRefresh = time.Now()
 		if err = txRepo.Project.Update(project); err != nil {
 			switch {
-			case errors.Is(err, repository.ErrNotFound):
+			case errors.Is(err, repositoryInte.ErrNotFound):
 				return ErrProjectNotFound
 			default:
 				log.Printf("fail to update project %d :%v", projectID, err)
@@ -197,14 +198,14 @@ func (s *budgetService) RefreshBudget(projectID uint64) error { //TODO 改为基
 		budgets, err := txRepo.ProjectBudget.GetByProjectID(projectID)
 		if err != nil {
 			switch {
-			case errors.Is(err, repository.ErrNotFound):
+			case errors.Is(err, repositoryInte.ErrNotFound):
 				return ErrBudgetNotFound
 			}
 		}
 		for _, budget := range budgets {
 			if _, err = txRepo.Account.AdjustNetBalance(budget.AccountID, budget.Used); err != nil {
 				switch {
-				case errors.Is(err, repository.ErrNotFound):
+				case errors.Is(err, repositoryInte.ErrNotFound):
 					return ErrAccountNotFound
 				default:
 					log.Printf("fail to add budget %d :%v", budget.ID, err)
@@ -226,7 +227,7 @@ func (s *budgetService) AddPayment(userID, taskID uint64, payment *models.TaskPa
 	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
 		task, err := txRepo.Task.GetByID(taskID)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrTaskNotFound
 			}
 			return ErrInternal
@@ -238,7 +239,7 @@ func (s *budgetService) AddPayment(userID, taskID uint64, payment *models.TaskPa
 
 		projBudget, err := txRepo.ProjectBudget.GetByID(payment.BudgetID)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrBudgetNotFound
 			}
 			return ErrInternal
@@ -253,10 +254,10 @@ func (s *budgetService) AddPayment(userID, taskID uint64, payment *models.TaskPa
 		if projBudget.AccountID != 0 {
 			_, err := txRepo.Account.AdjustBalance(projBudget.AccountID, -payment.Amount)
 			if err != nil {
-				if errors.Is(err, repository.ErrNotFound) {
+				if errors.Is(err, repositoryInte.ErrNotFound) {
 					return ErrAccountNotFound
 				}
-				if errors.Is(err, repository.ErrConcurrentUpdate) {
+				if errors.Is(err, repositoryInte.ErrConcurrentUpdate) {
 					return ErrConcurrentUpdate
 				}
 				log.Printf("failed to update account balance: %v", err)
@@ -277,14 +278,14 @@ func (s *budgetService) UpdatePayment(userID uint64, payment *models.TaskPayment
 	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
 		oldPayment, err := txRepo.TaskPayment.GetByID(payment.ID)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrBudgetNotFound
 			}
 			return ErrInternal
 		}
 		task, err := txRepo.Task.GetByID(payment.TaskID)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrTaskNotFound
 			}
 			log.Printf("fail to get task %d :%v", payment.TaskID, err)
@@ -312,10 +313,10 @@ func (s *budgetService) UpdatePayment(userID uint64, payment *models.TaskPayment
 				if projBudget.AccountID != 0 {
 					_, err := txRepo.Account.AdjustBalance(projBudget.AccountID, -delta)
 					if err != nil {
-						if errors.Is(err, repository.ErrNotFound) {
+						if errors.Is(err, repositoryInte.ErrNotFound) {
 							return ErrAccountNotFound
 						}
-						if errors.Is(err, repository.ErrConcurrentUpdate) {
+						if errors.Is(err, repositoryInte.ErrConcurrentUpdate) {
 							return ErrConcurrentUpdate
 						}
 						log.Printf("failed to update account balance: %v", err)
@@ -330,10 +331,10 @@ func (s *budgetService) UpdatePayment(userID uint64, payment *models.TaskPayment
 				if projBudget.AccountID != 0 {
 					_, err := txRepo.Account.AdjustBalance(projBudget.AccountID, dec)
 					if err != nil {
-						if errors.Is(err, repository.ErrNotFound) {
+						if errors.Is(err, repositoryInte.ErrNotFound) {
 							return ErrAccountNotFound
 						}
-						if errors.Is(err, repository.ErrConcurrentUpdate) {
+						if errors.Is(err, repositoryInte.ErrConcurrentUpdate) {
 							return ErrConcurrentUpdate
 						}
 						log.Printf("failed to update account balance: %v", err)
@@ -354,7 +355,7 @@ func (s *budgetService) DeletePayment(userID, paymentID uint64) error {
 	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
 		payment, err := txRepo.TaskPayment.GetByID(paymentID)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrBudgetNotFound
 			}
 			return ErrInternal
@@ -362,7 +363,7 @@ func (s *budgetService) DeletePayment(userID, paymentID uint64) error {
 
 		task, err := txRepo.Task.GetByID(payment.TaskID)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrTaskNotFound
 			}
 			log.Printf("fail to get task %d :%v", payment.TaskID, err)
@@ -384,10 +385,10 @@ func (s *budgetService) DeletePayment(userID, paymentID uint64) error {
 		if projBudget.AccountID != 0 {
 			_, err := txRepo.Account.AdjustBalance(projBudget.AccountID, payment.Amount)
 			if err != nil {
-				if errors.Is(err, repository.ErrNotFound) {
+				if errors.Is(err, repositoryInte.ErrNotFound) {
 					return ErrAccountNotFound
 				}
-				if errors.Is(err, repository.ErrConcurrentUpdate) {
+				if errors.Is(err, repositoryInte.ErrConcurrentUpdate) {
 					return ErrConcurrentUpdate
 				}
 				log.Printf("failed to update account balance: %v", err)
@@ -405,7 +406,7 @@ func (s *budgetService) DeletePayment(userID, paymentID uint64) error {
 func (s *budgetService) GetPaymentByTaskID(userID, taskID uint64) ([]*dto.TaskPaymentResponse, error) {
 	task, err := s.taskRepo.GetByID(taskID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrTaskNotFound
 		}
 		log.Printf("fail to get task %d :%v", taskID, err)

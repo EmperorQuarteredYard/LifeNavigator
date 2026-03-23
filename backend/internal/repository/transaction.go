@@ -1,33 +1,30 @@
 package repository
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"context"
 
 	"gorm.io/gorm"
 )
 
 type TxRepositories struct {
-	Project       ProjectRepository
-	ProjectBudget ProjectBudgetRepository
-	Task          TaskRepository
-	TaskPayment   TaskBudgetRepository
-	Account       AccountRepository
-	User          UserRepository
+	Project       repositoryInte.ProjectRepository
+	ProjectBudget repositoryInte.ProjectBudgetRepository
+	Task          repositoryInte.TaskRepository
+	TaskPayment   repositoryInte.TaskBudgetRepository
+	Account       repositoryInte.AccountRepository
+	User          repositoryInte.UserRepository
 }
 
-type Transactor interface {
-	WithinTransaction(ctx context.Context, fn func(txRepo TxRepositories) error) error
+func NewTransactor(db *gorm.DB) repositoryInte.Transactor {
+	return &transactor{db: db}
 }
 
 type transactor struct {
 	db *gorm.DB
 }
 
-func NewTransactor(db *gorm.DB) Transactor {
-	return &transactor{db: db}
-}
-
-func (t *transactor) WithinTransaction(ctx context.Context, fn func(txRepo TxRepositories) error) error {
+func (t *transactor) WithinTransaction(fn func(txRepo TxRepositories) error) error {
 	return t.db.Transaction(func(tx *gorm.DB) error {
 		txRepo := TxRepositories{
 			Project:       NewProjectRepository(tx),

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"errors"
@@ -52,10 +53,10 @@ func (s *inviteCodeService) GenerateInviteCode(amount int, currentUserID uint64,
 
 func (s *inviteCodeService) UseCode(token string) error {
 	err := s.repo.UseCodeByToken(token)
-	if errors.Is(err, repository.ErrNotFound) {
+	if errors.Is(err, repositoryInte.ErrNotFound) {
 		return ErrInviteCodeNotFound
 	}
-	if errors.Is(err, repository.ErrInviteCodeUsed) {
+	if errors.Is(err, repositoryInte.ErrInviteCodeUsed) {
 		return ErrInviteCodeUsed // 直接返回 repository 层的错误（也可包装）
 	}
 	if err != nil {
@@ -68,7 +69,7 @@ func (s *inviteCodeService) UseCode(token string) error {
 func (s *inviteCodeService) GetCodeInfo(token string, currentUserID uint64) (*models.InviteCode, error) {
 	code, err := s.repo.FindByToken(token)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrInviteCodeNotFound
 		}
 		log.Printf("failed to find invite code %s: %v", token, err)

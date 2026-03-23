@@ -1,26 +1,18 @@
 package repository
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"errors"
 
 	"gorm.io/gorm"
 )
 
-type InviteCodeRepository interface {
-	Create(code *models.InviteCode) error                                   // 创建一个 InviteCode对象
-	UseCodeByToken(token string) error                                      // 使用给定的令牌来消耗一个邀请码
-	Delete(code *models.InviteCode) error                                   // 硬删除指定的邀请码记录
-	FindByToken(token string) (*models.InviteCode, error)                   //根据令牌查询邀请码
-	FindByID(id int64) (*models.InviteCode, error)                          // 根据ID查询邀请码。
-	GetByUserID(uid uint64, offset, limit int) ([]models.InviteCode, error) //根据创建者ID查询邀请码。
-}
-
 type inviteCodeRepository struct {
 	*baseRepository
 }
 
-func NewInviteCodeRepository(db *gorm.DB) InviteCodeRepository {
+func NewInviteCodeRepository(db *gorm.DB) repositoryInte.InviteCodeRepository {
 	return &inviteCodeRepository{baseRepository: &baseRepository{db: db}}
 }
 
@@ -59,15 +51,15 @@ func (r *inviteCodeRepository) UseCodeByToken(token string) error {
 		err := r.db.Where("token = ?", token).First(&code).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrNotFound
+				return repositoryInte.ErrNotFound
 			}
 			return err
 		}
 		if code.Count >= code.Amount {
-			return ErrInviteCodeUsed
+			return repositoryInte.ErrInviteCodeUsed
 		}
 		// 理论上不会走到这里，但为安全返回未知错误
-		return ErrUnexpected
+		return repositoryInte.ErrUnexpected
 	}
 
 	return nil
@@ -76,7 +68,7 @@ func (r *inviteCodeRepository) Delete(code *models.InviteCode) error {
 	err := r.db.Delete(code).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+			return repositoryInte.ErrNotFound
 		}
 		return err
 	}
@@ -88,7 +80,7 @@ func (r *inviteCodeRepository) FindByToken(token string) (*models.InviteCode, er
 	err := r.db.Where("token = ?", token).First(&code).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, err
 	}
@@ -100,7 +92,7 @@ func (r *inviteCodeRepository) FindByID(id int64) (*models.InviteCode, error) {
 	err := r.db.First(&code, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, err
 	}

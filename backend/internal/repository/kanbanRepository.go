@@ -1,29 +1,14 @@
 package repository
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"errors"
 
 	"gorm.io/gorm"
 )
 
-type KanbanRepository interface {
-	Create(kanban *models.Kanban) error
-	GetByID(id uint64) (*models.Kanban, error)
-	GetByIDWithProjects(id uint64) (*models.Kanban, error)
-	ListByUserID(userID uint64) ([]models.Kanban, error)
-	Update(kanban *models.Kanban) error
-	Delete(id uint64) error
-	AddProject(kanbanID, projectID uint64) error
-	RemoveProject(kanbanID, projectID uint64) error
-	SetProjects(kanbanID uint64, projectIDs []uint64) error
-	GetProjectIDs(kanbanID uint64) ([]uint64, error)
-	CheckOwnership(userID, kanbanID uint64) (bool, error)
-	GetDefaultKanban(userID uint64) (*models.Kanban, error)
-	SetDefaultKanban(userID, kanbanID uint64) error
-}
-
-func NewKanbanRepository(db *gorm.DB) KanbanRepository {
+func NewKanbanRepository(db *gorm.DB) repositoryInte.KanbanRepository {
 	return &kanbanRepository{baseRepository: &baseRepository{db: db}}
 }
 
@@ -40,7 +25,7 @@ func (r *kanbanRepository) GetByID(id uint64) (*models.Kanban, error) {
 	err := r.db.First(&kanban, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, err
 	}
@@ -52,7 +37,7 @@ func (r *kanbanRepository) GetByIDWithProjects(id uint64) (*models.Kanban, error
 	err := r.db.Preload("Projects").First(&kanban, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, err
 	}
@@ -71,7 +56,7 @@ func (r *kanbanRepository) Update(kanban *models.Kanban) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return ErrNotFound
+		return repositoryInte.ErrNotFound
 	}
 	return nil
 }
@@ -86,7 +71,7 @@ func (r *kanbanRepository) Delete(id uint64) error {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
-			return ErrNotFound
+			return repositoryInte.ErrNotFound
 		}
 		return nil
 	})
@@ -142,7 +127,7 @@ func (r *kanbanRepository) GetDefaultKanban(userID uint64) (*models.Kanban, erro
 	err := r.db.Where("user_id = ? AND is_default = ?", userID, true).First(&kanban).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, err
 	}
@@ -159,7 +144,7 @@ func (r *kanbanRepository) SetDefaultKanban(userID, kanbanID uint64) error {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
-			return ErrNotFound
+			return repositoryInte.ErrNotFound
 		}
 		return nil
 	})

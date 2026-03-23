@@ -1,6 +1,7 @@
 package service
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
@@ -133,7 +134,7 @@ func (s *kanbanService) GetByID(userID, id uint64) (*dto.KanbanResponse, error) 
 
 	kanban, err := s.kanbanRepo.GetByID(id)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrKanbanNotFound
 		}
 		log.Printf("failed to get kanban %d: %v", id, err)
@@ -184,7 +185,7 @@ func (s *kanbanService) Update(userID uint64, id uint64, req *dto.UpdateKanbanRe
 
 	kanban, err := s.kanbanRepo.GetByID(id)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrKanbanNotFound
 		}
 		return ErrInternal
@@ -223,7 +224,7 @@ func (s *kanbanService) Delete(userID, id uint64) error {
 	}
 
 	if err := s.kanbanRepo.Delete(id); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrKanbanNotFound
 		}
 		log.Printf("failed to delete kanban %d: %v", id, err)
@@ -258,7 +259,7 @@ func (s *kanbanService) GetKanbanTasks(userID, kanbanID uint64, status *uint8, p
 func (s *kanbanService) GetDefaultKanbanTasks(userID uint64, status *uint8, page, pageSize int) (*dto.KanbanTaskListResponse, error) {
 	kanban, err := s.kanbanRepo.GetDefaultKanban(userID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			kanbans, listErr := s.kanbanRepo.ListByUserID(userID)
 			if listErr != nil || len(kanbans) == 0 {
 				return &dto.KanbanTaskListResponse{Total: 0, List: []*dto.KanbanTaskResponse{}}, nil
@@ -381,7 +382,7 @@ func (s *kanbanService) SetDefaultKanban(userID, kanbanID uint64) error {
 	}
 
 	if err := s.kanbanRepo.SetDefaultKanban(userID, kanbanID); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrKanbanNotFound
 		}
 		log.Printf("failed to set default kanban: %v", err)

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"errors"
 	"time"
@@ -8,28 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type TaskRepository interface {
-	Create(task *models.Task) error
-	GetByID(id uint64) (*models.Task, error)
-	ListByProjectID(projectID uint64, page, pageSize int) ([]models.Task, int64, error)
-	ListByUserID(userID uint64, offset, limit int) ([]models.Task, int64, error)
-	ListCompletedByUserIDAndTimeRange(userID uint64, startTime, endTime time.Time) ([]models.Task, error)
-	Update(task *models.Task) error
-	UpdateStatus(id uint64, status uint8) error
-	Delete(id uint64) error
-	GetByStatus(projectID uint64, status uint8) ([]models.Task, error)
-	GetByDeadlineBefore(projectID uint64, deadline time.Time, pageSize, page int) ([]models.Task, int64, error)
-	GetByDeadlineAfter(projectID uint64, deadline time.Time, page, pageSize int) ([]models.Task, int64, error)
-	GetByTimePeriod(projectID uint64, start, end time.Time, page, pageSize int) ([]models.Task, int64, error)
-	SetPrerequisiteTask(prerequisiteID, taskID uint64) (dependency *models.TaskDependency, err error)
-	UnsetPrerequisiteTask(prerequisiteID, taskID uint64) (err error)
-	GetPrerequisites(taskID uint64) (prerequisites []models.TaskDependency, err error)
-	GetPostrequisites(prerequisiteID uint64) (prerequisites []models.TaskDependency, err error)
-	ListByAccountID(accountID uint64, startTime, endTime time.Time) ([]models.Task, error)
-	CheckOwnership(userID, taskID uint64) (bool, error)
-}
-
-func NewTaskRepository(db *gorm.DB) TaskRepository {
+func NewTaskRepository(db *gorm.DB) repositoryInte.TaskRepository {
 	return &taskRepository{baseRepository: &baseRepository{db: db}}
 }
 
@@ -101,7 +81,7 @@ func (r *taskRepository) UnsetPrerequisiteTask(prerequisite, task uint64) (err e
 	err = r.db.Where("prerequisite_id = ? AND task_id = ?", prerequisite, task).Delete(&models.TaskDependency{}).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+			return repositoryInte.ErrNotFound
 		}
 		return
 	}
@@ -114,18 +94,18 @@ func (r *taskRepository) SetPrerequisiteTask(prerequisiteID, taskID uint64) (dep
 
 	if err = r.db.First(task, taskID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, err
 	}
 	if err = r.db.First(prerequisite, prerequisiteID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, err
 	}
 	if prerequisite.ProjectID != task.ProjectID {
-		return nil, ErrPermissionDenied
+		return nil, repositoryInte.ErrPermissionDenied
 	}
 
 	dependency = &models.TaskDependency{
@@ -134,7 +114,7 @@ func (r *taskRepository) SetPrerequisiteTask(prerequisiteID, taskID uint64) (dep
 		PrerequisiteID: prerequisiteID,
 	}
 	if err := r.db.Where("task_id = ? AND prerequisite_id = ?", taskID, prerequisiteID).First(dependency).Error; err == nil {
-		return dependency, ErrRecordExist
+		return dependency, repositoryInte.ErrRecordExist
 	}
 	err = r.db.Create(dependency).Error
 	if err != nil {
@@ -145,7 +125,7 @@ func (r *taskRepository) SetPrerequisiteTask(prerequisiteID, taskID uint64) (dep
 
 func (r *taskRepository) GetByDeadlineAfter(projectID uint64, deadline time.Time, page, pageSize int) ([]models.Task, int64, error) {
 	if pageSize < 0 {
-		return nil, 0, ErrInvalidInput
+		return nil, 0, repositoryInte.ErrInvalidInput
 	}
 
 	var tasks []models.Task
@@ -186,7 +166,7 @@ func (r *taskRepository) GetByID(id uint64) (*models.Task, error) {
 	result := r.db.First(&task, id)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, result.Error
 	}
@@ -195,7 +175,7 @@ func (r *taskRepository) GetByID(id uint64) (*models.Task, error) {
 
 func (r *taskRepository) ListByProjectID(projectID uint64, page, pageSize int) ([]models.Task, int64, error) {
 	if pageSize < 0 {
-		return nil, 0, ErrInvalidInput
+		return nil, 0, repositoryInte.ErrInvalidInput
 	}
 
 	var tasks []models.Task
@@ -265,7 +245,7 @@ func (r *taskRepository) Update(task *models.Task) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return ErrNotFound
+		return repositoryInte.ErrNotFound
 	}
 	return nil
 }
@@ -276,7 +256,7 @@ func (r *taskRepository) UpdateStatus(id uint64, status uint8) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return ErrNotFound
+		return repositoryInte.ErrNotFound
 	}
 	return nil
 }
@@ -287,7 +267,7 @@ func (r *taskRepository) Delete(id uint64) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return ErrNotFound
+		return repositoryInte.ErrNotFound
 	}
 	return nil
 }
@@ -300,7 +280,7 @@ func (r *taskRepository) GetByStatus(projectID uint64, status uint8) ([]models.T
 
 func (r *taskRepository) GetByDeadlineBefore(projectID uint64, deadline time.Time, page, pageSize int) ([]models.Task, int64, error) {
 	if pageSize < 0 {
-		return nil, 0, ErrInvalidInput
+		return nil, 0, repositoryInte.ErrInvalidInput
 	}
 
 	var tasks []models.Task
@@ -330,7 +310,7 @@ func (r *taskRepository) GetByDeadlineBefore(projectID uint64, deadline time.Tim
 
 func (r *taskRepository) GetByTimePeriod(projectID uint64, start, end time.Time, page, pageSize int) ([]models.Task, int64, error) {
 	if pageSize < 0 {
-		return nil, 0, ErrInvalidInput
+		return nil, 0, repositoryInte.ErrInvalidInput
 	}
 
 	var tasks []models.Task

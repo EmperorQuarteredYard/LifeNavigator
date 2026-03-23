@@ -1,6 +1,7 @@
 package service
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
@@ -95,7 +96,7 @@ func (s *taskService) Create(userID uint64, task *models.Task) (*dto.TaskRespons
 func (s *taskService) GetByID(userID, id uint64) (*dto.TaskResponse, error) {
 	task, err := s.taskRepo.GetByID(id)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrTaskNotFound
 		}
 		log.Printf("failed to get task %d: %v", id, err)
@@ -113,7 +114,7 @@ func (s *taskService) ListByProjectID(userID, projectID uint64, page, pageSize i
 	}
 	tasks, total, err := s.taskRepo.ListByProjectID(projectID, page, pageSize)
 	if err != nil {
-		if errors.Is(err, repository.ErrInvalidInput) {
+		if errors.Is(err, repositoryInte.ErrInvalidInput) {
 			return nil, ErrInvalidInput
 		}
 		log.Printf("failed to list tasks for project %d: %v", projectID, err)
@@ -136,7 +137,7 @@ func (s *taskService) Update(userID uint64, task *models.Task) (err error) {
 	var oldTask *models.Task
 	oldTask, err = s.taskRepo.GetByID(task.ID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrTaskNotFound
 		}
 		log.Printf("failed to get task %d: %v", task.ID, err)
@@ -154,7 +155,7 @@ func (s *taskService) Update(userID uint64, task *models.Task) (err error) {
 		}
 	}
 	if err = s.taskRepo.Update(task); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrTaskNotFound
 		}
 		log.Printf("failed to update task %d: %v", task.ID, err)
@@ -169,7 +170,7 @@ func (s *taskService) Delete(userID, id uint64) error {
 		var task *models.Task
 		task, err := txRepo.Task.GetByID(id)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrTaskNotFound
 			}
 			log.Printf("failed to get task %d: %v", id, err)
@@ -179,7 +180,7 @@ func (s *taskService) Delete(userID, id uint64) error {
 			return err
 		}
 		if err = txRepo.Task.Delete(id); err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
+			if errors.Is(err, repositoryInte.ErrNotFound) {
 				return ErrTaskNotFound
 			}
 			log.Printf("failed to delete task %d: %v", id, err)
@@ -197,7 +198,7 @@ func (s *taskService) UpdateStatus(userID, id uint64, status uint8) (err error) 
 	var oldTask *models.Task
 	oldTask, err = s.taskRepo.GetByID(id)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrTaskNotFound
 		}
 		log.Printf("failed to get task %d: %v", id, err)
@@ -208,7 +209,7 @@ func (s *taskService) UpdateStatus(userID, id uint64, status uint8) (err error) 
 	}
 
 	if err = s.taskRepo.UpdateStatus(id, status); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrTaskNotFound
 		}
 		log.Printf("failed to update task status %d: %v", id, err)
@@ -240,7 +241,7 @@ func (s *taskService) GetByDeadlineBefore(userID, projectID uint64, deadline tim
 	}
 	tasks, total, err := s.taskRepo.GetByDeadlineBefore(projectID, deadline, page, pageSize)
 	if err != nil {
-		if errors.Is(err, repository.ErrInvalidInput) {
+		if errors.Is(err, repositoryInte.ErrInvalidInput) {
 			return nil, ErrInvalidInput
 		}
 		log.Printf("failed to get tasks by deadline before: %v", err)
@@ -265,7 +266,7 @@ func (s *taskService) GetByDeadlineAfter(userID, projectID uint64, deadline time
 	}
 	tasks, total, err := s.taskRepo.GetByDeadlineAfter(projectID, deadline, page, pageSize)
 	if err != nil {
-		if errors.Is(err, repository.ErrInvalidInput) {
+		if errors.Is(err, repositoryInte.ErrInvalidInput) {
 			return nil, ErrInvalidInput
 		}
 		log.Printf("failed to get tasks by deadline after: %v", err)
@@ -290,7 +291,7 @@ func (s *taskService) GetByTimePeriod(userID, projectID uint64, start, end time.
 	}
 	tasks, total, err := s.taskRepo.GetByTimePeriod(projectID, start, end, page, pageSize)
 	if err != nil {
-		if errors.Is(err, repository.ErrInvalidInput) {
+		if errors.Is(err, repositoryInte.ErrInvalidInput) {
 			return nil, ErrInvalidInput
 		}
 		log.Printf("failed to get tasks by time period: %v", err)
@@ -313,7 +314,7 @@ func (s *taskService) SetPrerequisiteTask(userID, prerequisiteID, taskID uint64)
 	var task, prerequisite *models.Task
 	var err error
 	if task, err = s.taskRepo.GetByID(taskID); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrTaskNotFound
 		}
 		log.Printf("failed to get task %d: %v", taskID, err)
@@ -323,7 +324,7 @@ func (s *taskService) SetPrerequisiteTask(userID, prerequisiteID, taskID uint64)
 		return nil, err
 	}
 	if prerequisite, err = s.taskRepo.GetByID(taskID); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrTaskNotFound
 		}
 		log.Printf("failed to get task %d: %v", taskID, err)
@@ -348,7 +349,7 @@ func (s *taskService) UnsetPrerequisiteTask(userID, prerequisiteID, taskID uint6
 	var task *models.Task
 	var err error
 	if task, err = s.taskRepo.GetByID(taskID); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrTaskNotFound
 		}
 		log.Printf("failed to get task %d: %v", taskID, err)
@@ -360,7 +361,7 @@ func (s *taskService) UnsetPrerequisiteTask(userID, prerequisiteID, taskID uint6
 
 	err = s.taskRepo.UnsetPrerequisiteTask(prerequisiteID, taskID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return ErrTaskDependencyNotFound
 		}
 		log.Println("Fail to unset prerequisite task:", err)
@@ -372,7 +373,7 @@ func (s *taskService) UnsetPrerequisiteTask(userID, prerequisiteID, taskID uint6
 func (s *taskService) GetPrerequisites(userID, taskID uint64) ([]*dto.DependencyResponse, error) {
 	task, err := s.taskRepo.GetByID(taskID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrTaskDependencyNotFound
 		}
 		log.Println("Fail to get prerequisites by taskID:", err)
@@ -384,7 +385,7 @@ func (s *taskService) GetPrerequisites(userID, taskID uint64) ([]*dto.Dependency
 	}
 	prerequisites, err := s.taskRepo.GetPrerequisites(taskID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrTaskDependencyNotFound
 		}
 		log.Println("Fail to get prerequisites by taskID:", err)
@@ -404,7 +405,7 @@ func (s *taskService) GetPrerequisites(userID, taskID uint64) ([]*dto.Dependency
 func (s *taskService) GetPostrequisite(userID, taskID uint64) ([]*dto.DependencyResponse, error) {
 	task, err := s.taskRepo.GetByID(taskID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrTaskDependencyNotFound
 		}
 		log.Println("Fail to get prerequisites by taskID:", err)
@@ -416,7 +417,7 @@ func (s *taskService) GetPostrequisite(userID, taskID uint64) ([]*dto.Dependency
 	}
 	prerequisites, err := s.taskRepo.GetPostrequisites(taskID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repositoryInte.ErrNotFound) {
 			return nil, ErrTaskDependencyNotFound
 		}
 		log.Println("Fail to get prerequisites by TaskID:", err)

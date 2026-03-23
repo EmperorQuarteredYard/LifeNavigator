@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"errors"
 	"time"
@@ -8,18 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type AccountRepository interface {
-	Create(account *models.Account, userIDs []uint64) (*models.Account, error)
-	Delete(account *models.Account) error
-	AdjustBalance(accountID uint64, amount float64) (float64, error)
-	AdjustNetBalance(accountID uint64, amount float64) (float64, error)
-	GetByID(accountID uint64) (*models.Account, error)
-	ListByUserID(userID uint64) ([]models.Account, error)
-	SetUpdateMaxTry(maxTry int)
-	CheckOwnership(userID, accountID uint64) (bool, error)
-}
-
-func NewAccountRepository(db *gorm.DB) AccountRepository {
+func NewAccountRepository(db *gorm.DB) repositoryInte.AccountRepository {
 	return &accountRepository{baseRepository: &baseRepository{db: db}, updateMaxTry: 3}
 }
 
@@ -57,7 +47,7 @@ func (a *accountRepository) AdjustNetBalance(accountID uint64, amount float64) (
 		err := a.db.First(account, accountID).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return 0, ErrNotFound
+				return 0, repositoryInte.ErrNotFound
 			}
 			return 0, err
 		}
@@ -77,7 +67,7 @@ func (a *accountRepository) AdjustNetBalance(accountID uint64, amount float64) (
 
 		if result.RowsAffected == 0 {
 			if i == a.updateMaxTry-1 {
-				return 0, ErrConcurrentUpdate
+				return 0, repositoryInte.ErrConcurrentUpdate
 			}
 			time.Sleep(10 * time.Millisecond)
 			continue
@@ -86,7 +76,7 @@ func (a *accountRepository) AdjustNetBalance(accountID uint64, amount float64) (
 		return newNetBalance, nil
 	}
 
-	return 0, ErrConcurrentUpdate
+	return 0, repositoryInte.ErrConcurrentUpdate
 }
 
 func (a *accountRepository) AdjustBalance(accountID uint64, amount float64) (float64, error) {
@@ -103,7 +93,7 @@ func (a *accountRepository) AdjustBalance(accountID uint64, amount float64) (flo
 		err := a.db.First(account, accountID).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return 0, ErrNotFound
+				return 0, repositoryInte.ErrNotFound
 			}
 			return 0, err
 		}
@@ -123,7 +113,7 @@ func (a *accountRepository) AdjustBalance(accountID uint64, amount float64) (flo
 
 		if result.RowsAffected == 0 {
 			if i == a.updateMaxTry-1 {
-				return 0, ErrConcurrentUpdate
+				return 0, repositoryInte.ErrConcurrentUpdate
 			}
 			time.Sleep(10 * time.Millisecond)
 			continue
@@ -132,7 +122,7 @@ func (a *accountRepository) AdjustBalance(accountID uint64, amount float64) (flo
 		return newBalance, nil
 	}
 
-	return 0, ErrConcurrentUpdate
+	return 0, repositoryInte.ErrConcurrentUpdate
 }
 
 func (a *accountRepository) GetByID(accountID uint64) (*models.Account, error) {
@@ -140,7 +130,7 @@ func (a *accountRepository) GetByID(accountID uint64) (*models.Account, error) {
 	err := a.db.First(account, accountID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, err
 	}

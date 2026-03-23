@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"LifeNavigator/internal/interfaces/repositoryInte"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/pkg/permission"
 	"LifeNavigator/pkg/scheduler"
@@ -10,18 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type ProjectRepository interface {
-	Create(project *models.Project, userIDs []uint64) error
-	GetByID(id uint64) (*models.Project, error)
-	ListByUserID(userID uint64, offset, limit int) ([]models.Project, error)
-	Update(project *models.Project) error
-	Delete(id uint64) error
-	CheckOwnership(userID, projectID uint64) (bool, error)
-	GetRefreshInformation(page, pageSize int) (list []*scheduler.Schedule, total int64, err error)
-	CheckAccessibility(userID uint64, projectID uint64, operation permission.Operation, isUserGuest bool) (bool, error)
-}
-
-func NewProjectRepository(db *gorm.DB) ProjectRepository {
+func NewProjectRepository(db *gorm.DB) repositoryInte.ProjectRepository {
 	return &projectRepository{baseRepository: &baseRepository{db: db}}
 }
 
@@ -35,7 +25,7 @@ func (r *projectRepository) CheckAccessibility(userID uint64, projectID uint64, 
 	err := r.db.Where("id = ?", projectID).First(&project).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, ErrNotFound
+			return false, repositoryInte.ErrNotFound
 		}
 		return false, err
 	}
@@ -147,7 +137,7 @@ func (r *projectRepository) GetByID(id uint64) (*models.Project, error) {
 	result := r.db.First(&project, id)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, repositoryInte.ErrNotFound
 		}
 		return nil, result.Error
 	}
@@ -171,7 +161,7 @@ func (r *projectRepository) Update(project *models.Project) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return ErrNotFound
+		return repositoryInte.ErrNotFound
 	}
 	return nil
 }
@@ -186,7 +176,7 @@ func (r *projectRepository) Delete(id uint64) error {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
-			return ErrNotFound
+			return repositoryInte.ErrNotFound
 		}
 		return nil
 	})
