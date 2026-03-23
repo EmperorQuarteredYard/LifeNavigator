@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"LifeNavigator/internal/service"
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/errcode"
 	"errors"
@@ -12,15 +12,15 @@ import (
 
 type InviteController struct {
 	BaseController
-	inviteCodeService service.InviteCodeService
-	inviteUserService service.InviteUserService
-	userService       service.UserService
+	inviteCodeService Service.InviteCodeService
+	inviteUserService Service.InviteUserService
+	userService       Service.UserService
 }
 
 func NewInviteController(
-	inviteCodeService service.InviteCodeService,
-	inviteUserService service.InviteUserService,
-	userService service.UserService,
+	inviteCodeService Service.InviteCodeService,
+	inviteUserService Service.InviteUserService,
+	userService Service.UserService,
 ) *InviteController {
 	return &InviteController{
 		inviteCodeService: inviteCodeService,
@@ -45,9 +45,9 @@ func (ctl *InviteController) CreateInviteCode(c *gin.Context) {
 	inviteCode, err := ctl.inviteUserService.CreateInviteCode(authUser.UserID, req.Amount, req.Role)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrUserNotFound):
+		case errors.Is(err, Service.ErrUserNotFound):
 			ctl.Code(c, errcode.StatusUserNotFound)
-		case errors.Is(err, service.ErrForbidden):
+		case errors.Is(err, Service.ErrForbidden):
 			ctl.Code(c, errcode.StatusInsufficientPerm)
 		default:
 			ctl.ServerError(c)
@@ -74,9 +74,9 @@ func (ctl *InviteController) GetInviteCode(c *gin.Context) {
 	code, err := ctl.inviteCodeService.GetCodeInfo(token, authUser.UserID)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrForbidden):
+		case errors.Is(err, Service.ErrForbidden):
 			ctl.Code(c, errcode.StatusInsufficientPermissions)
-		case errors.Is(err, service.ErrInviteCodeNotFound):
+		case errors.Is(err, Service.ErrInviteCodeNotFound):
 			ctl.Code(c, errcode.StatusInviteCodeNotFound)
 		default:
 			ctl.Code(c, errcode.StatusServerError)

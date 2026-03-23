@@ -1,8 +1,8 @@
 package controller
 
 import (
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
-	"LifeNavigator/internal/service"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/errcode"
 	"strconv"
@@ -12,11 +12,11 @@ import (
 )
 
 type TaskController struct {
-	taskServ service.TaskService
+	taskServ Service.TaskService
 	*BaseController
 }
 
-func NewTaskController(taskServ service.TaskService) *TaskController {
+func NewTaskController(taskServ Service.TaskService) *TaskController {
 	return &TaskController{
 		taskServ:       taskServ,
 		BaseController: &BaseController{},
@@ -152,29 +152,22 @@ func (ctl *TaskController) ListTasks(c *gin.Context) { // TODO 这里应当增�
 	if !ok {
 		return
 	}
-
-	if projectIDStr != "" {
-		projectID, err := strconv.ParseUint(projectIDStr, 10, 64)
-		if err != nil {
-			ctl.Code(c, errcode.StatusInvalidParams)
-			return
-		}
-		tasks, err := ctl.taskServ.ListByProjectID(authUser.UserID, projectID, page, pageSize)
-		if err != nil {
-			ctl.Error(c, err)
-			return
-		}
-		ctl.Success(c, tasks)
+	if projectIDStr == "" {
+		ctl.Code(c, errcode.StatusInvalidParams)
 		return
 	}
-
-	offset := (page - 1) * pageSize
-	tasks, err := ctl.taskServ.ListByUserID(authUser.UserID, offset, pageSize)
+	projectID, err := strconv.ParseUint(projectIDStr, 10, 64)
+	if err != nil {
+		ctl.Code(c, errcode.StatusInvalidParams)
+		return
+	}
+	tasks, err := ctl.taskServ.ListByProjectID(authUser.UserID, projectID, page, pageSize)
 	if err != nil {
 		ctl.Error(c, err)
 		return
 	}
 	ctl.Success(c, tasks)
+	return
 }
 
 func (ctl *TaskController) UpdateTaskStatus(c *gin.Context) {

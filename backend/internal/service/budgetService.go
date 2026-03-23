@@ -1,45 +1,26 @@
 package service
 
 import (
-	"LifeNavigator/internal/interfaces/repositoryInte"
+	"LifeNavigator/internal/interfaces/Repository"
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
-	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/permission"
 	"LifeNavigator/pkg/refresh"
 	"LifeNavigator/pkg/scheduler"
-	"context"
 	"errors"
 	"log"
 	"time"
 )
 
-type BudgetService interface {
-	// ProjectBudget 相关
-	AddBudget(userID, projectID uint64, budget *models.ProjectBudget) error
-	UpdateBudget(userID uint64, budget *models.ProjectBudget) error
-	DeleteBudget(userID, budgetID uint64) error
-	RefreshBudget(projectID uint64) error
-
-	// TaskPayment 相关
-	AddPayment(userID, taskID uint64, payment *models.TaskPayment) error
-	UpdatePayment(userID uint64, payment *models.TaskPayment) error
-	DeletePayment(userID, paymentID uint64) error
-	GetPaymentByTaskID(userID, taskID uint64) ([]*dto.TaskPaymentResponse, error)
-
-	// 调度控制（原 projectService 中与预算刷新相关的调度）
-	StartAutoRefresh() error
-	EndAutoRefresh()
-}
-
 func NewBudgetService(
-	taskRepo repository.TaskRepository,
-	taskBudgetRepo repository.TaskBudgetRepository,
-	projectBudgetRepo repository.ProjectBudgetRepository,
-	accountRepo repository.AccountRepository,
-	projectRepo repository.ProjectRepository,
-	transactor repository.Transactor,
-) BudgetService {
+	taskRepo Repository.TaskRepository,
+	taskBudgetRepo Repository.TaskBudgetRepository,
+	projectBudgetRepo Repository.ProjectBudgetRepository,
+	accountRepo Repository.AccountRepository,
+	projectRepo Repository.ProjectRepository,
+	transactor Repository.Transactor,
+) Service.BudgetService {
 	// 调度器暂时用空实现，StartAutoRefresh 中会重新创建
 	scheduleServ := scheduler.NewScheduleService(func(uint64) error { return nil }, func(int, int) (int64, []*scheduler.Schedule) { return 0, nil })
 	return &budgetService{
@@ -54,11 +35,11 @@ func NewBudgetService(
 }
 
 type budgetService struct {
-	transactor        repository.Transactor
-	taskRepo          repository.TaskRepository
-	taskBudgetRepo    repository.TaskBudgetRepository
-	projectBudgetRepo repository.ProjectBudgetRepository
-	accountRepo       repository.AccountRepository
+	transactor        Repository.Transactor
+	taskRepo          Repository.TaskRepository
+	taskBudgetRepo    Repository.TaskBudgetRepository
+	projectBudgetRepo Repository.ProjectBudgetRepository
+	accountRepo       Repository.AccountRepository
 	scheduleService   *scheduler.ScheduleService
 	*projectBase
 }
@@ -68,16 +49,16 @@ func (s *budgetService) AddBudget(userID, projectID uint64, budget *models.Proje
 		return err
 	}
 
-	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+	return s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		budget.ProjectID = projectID
 		if err := txRepo.ProjectBudget.Create(budget); err != nil {
 			log.Printf("failed to create project budget: %v", err)
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		if budget.AccountID != 0 {
 			if _, err := txRepo.Account.AdjustNetBalance(budget.AccountID, -1*budget.Budget); err != nil {
 				log.Printf("failed to adjust net balance: %v", err)
-				return ErrInternal
+				return Service.ErrInternal
 			}
 		}
 		return nil
@@ -87,48 +68,48 @@ func (s *budgetService) AddBudget(userID, projectID uint64, budget *models.Proje
 func (s *budgetService) UpdateBudget(userID uint64, budget *models.ProjectBudget) error {
 	existing, err := s.projectBudgetRepo.GetByID(budget.ID)
 	if err != nil {
-		if errors.Is(err, repositoryInte.ErrNotFound) {
-			return ErrBudgetNotFound
+		if errors.Is(err, Repository.ErrNotFound) {
+			return Service.ErrBudgetNotFound
 		}
 		log.Printf("failed to get budget %d: %v", budget.ID, err)
-		return ErrInternal
+		return Service.ErrInternal
 	}
 
 	if err := s.checkProjectAccessibility(userID, existing.ProjectID, permission.OpUpdate); err != nil {
 		return err
 	}
 
-	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+	return s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		oldBudget, err := txRepo.ProjectBudget.GetByID(budget.ID)
 		if err != nil {
-			if errors.Is(err, repositoryInte.ErrNotFound) {
-				return ErrBudgetNotFound
+			if errors.Is(err, Repository.ErrNotFound) {
+				return Service.ErrBudgetNotFound
 			}
-			return ErrInternal
+			return Service.ErrInternal
 		}
 
 		if budget.AccountID != oldBudget.AccountID {
 			if oldBudget.AccountID != 0 {
 				if _, err := txRepo.Account.AdjustNetBalance(oldBudget.AccountID, oldBudget.Budget); err != nil {
-					return ErrInternal
+					return Service.ErrInternal
 				}
 			}
 			if budget.AccountID != 0 {
 				if _, err := txRepo.Account.AdjustNetBalance(budget.AccountID, -1*budget.Budget); err != nil {
-					return ErrInternal
+					return Service.ErrInternal
 				}
 			}
 		} else if budget.Budget != oldBudget.Budget && budget.AccountID != 0 {
 			if _, err := txRepo.Account.AdjustNetBalance(oldBudget.AccountID, oldBudget.Budget-budget.Budget); err != nil {
-				return ErrInternal
+				return Service.ErrInternal
 			}
 		}
 
 		if err := txRepo.ProjectBudget.Update(budget); err != nil {
-			if errors.Is(err, repositoryInte.ErrNotFound) {
-				return ErrBudgetNotFound
+			if errors.Is(err, Repository.ErrNotFound) {
+				return Service.ErrBudgetNotFound
 			}
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		return nil
 	})
@@ -137,79 +118,79 @@ func (s *budgetService) UpdateBudget(userID uint64, budget *models.ProjectBudget
 func (s *budgetService) DeleteBudget(userID, budgetID uint64) error {
 	existing, err := s.projectBudgetRepo.GetByID(budgetID)
 	if err != nil {
-		if errors.Is(err, repositoryInte.ErrNotFound) {
-			return ErrBudgetNotFound
+		if errors.Is(err, Repository.ErrNotFound) {
+			return Service.ErrBudgetNotFound
 		}
 		log.Printf("failed to get budget %d: %v", budgetID, err)
-		return ErrInternal
+		return Service.ErrInternal
 	}
 
 	if err := s.checkProjectAccessibility(userID, existing.ProjectID, permission.OpDelete); err != nil {
 		return err
 	}
 
-	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+	return s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		budget, err := txRepo.ProjectBudget.GetByID(budgetID)
 		if err != nil {
-			if errors.Is(err, repositoryInte.ErrNotFound) {
-				return ErrBudgetNotFound
+			if errors.Is(err, Repository.ErrNotFound) {
+				return Service.ErrBudgetNotFound
 			}
-			return ErrInternal
+			return Service.ErrInternal
 		}
 
 		if budget.AccountID != 0 {
 			if _, err := txRepo.Account.AdjustNetBalance(budget.AccountID, budget.Budget); err != nil {
-				return ErrInternal
+				return Service.ErrInternal
 			}
 		}
 
 		if err := txRepo.ProjectBudget.Delete(budgetID); err != nil {
-			if errors.Is(err, repositoryInte.ErrNotFound) {
-				return ErrBudgetNotFound
+			if errors.Is(err, Repository.ErrNotFound) {
+				return Service.ErrBudgetNotFound
 			}
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		return nil
 	})
 }
 
 func (s *budgetService) RefreshBudget(projectID uint64) error { //TODO 改为基于budgetID更新
-	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+	return s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		project, err := s.projectRepo.GetByID(projectID)
 		if err != nil {
 			switch {
-			case errors.Is(err, repositoryInte.ErrNotFound):
-				return ErrProjectNotFound
+			case errors.Is(err, Repository.ErrNotFound):
+				return Service.ErrProjectNotFound
 			default:
 				log.Printf("fail to get project %d :%v", projectID, err)
-				return ErrInternal
+				return Service.ErrInternal
 			}
 		}
 		project.LastRefresh = time.Now()
 		if err = txRepo.Project.Update(project); err != nil {
 			switch {
-			case errors.Is(err, repositoryInte.ErrNotFound):
-				return ErrProjectNotFound
+			case errors.Is(err, Repository.ErrNotFound):
+				return Service.ErrProjectNotFound
 			default:
 				log.Printf("fail to update project %d :%v", projectID, err)
-				return ErrInternal
+				return Service.ErrInternal
 			}
 		}
 		budgets, err := txRepo.ProjectBudget.GetByProjectID(projectID)
 		if err != nil {
 			switch {
-			case errors.Is(err, repositoryInte.ErrNotFound):
-				return ErrBudgetNotFound
+			case errors.Is(err, Repository.ErrNotFound):
+				return Service.ErrBudgetNotFound
 			}
 		}
 		for _, budget := range budgets {
 			if _, err = txRepo.Account.AdjustNetBalance(budget.AccountID, budget.Used); err != nil {
 				switch {
-				case errors.Is(err, repositoryInte.ErrNotFound):
-					return ErrAccountNotFound
+				case errors.Is(err, Repository.ErrNotFound):
+					return Service.ErrAccountNotFound
 				default:
 					log.Printf("fail to add budget %d :%v", budget.ID, err)
-					return ErrInternal
+					return Service.ErrInternal
 				}
 			}
 		}
@@ -224,13 +205,13 @@ func (s *budgetService) RefreshBudget(projectID uint64) error { //TODO 改为基
 // ---------- TaskPayment 相关实现 ----------
 func (s *budgetService) AddPayment(userID, taskID uint64, payment *models.TaskPayment) error {
 
-	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+	return s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		task, err := txRepo.Task.GetByID(taskID)
 		if err != nil {
-			if errors.Is(err, repositoryInte.ErrNotFound) {
-				return ErrTaskNotFound
+			if errors.Is(err, Repository.ErrNotFound) {
+				return Service.ErrTaskNotFound
 			}
-			return ErrInternal
+			return Service.ErrInternal
 		}
 
 		if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpCreate); err != nil {
@@ -239,135 +220,135 @@ func (s *budgetService) AddPayment(userID, taskID uint64, payment *models.TaskPa
 
 		projBudget, err := txRepo.ProjectBudget.GetByID(payment.BudgetID)
 		if err != nil {
-			if errors.Is(err, repositoryInte.ErrNotFound) {
-				return ErrBudgetNotFound
+			if errors.Is(err, Repository.ErrNotFound) {
+				return Service.ErrBudgetNotFound
 			}
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		if projBudget.ProjectID != task.ProjectID {
-			return ErrInvalidInput
+			return Service.ErrInvalidInput
 		}
 		if err := txRepo.ProjectBudget.AddUsed(payment.BudgetID, payment.Amount); err != nil {
 			log.Printf("failed to add used to project budgets: %v", err)
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		if projBudget.AccountID != 0 {
 			_, err := txRepo.Account.AdjustBalance(projBudget.AccountID, -payment.Amount)
 			if err != nil {
-				if errors.Is(err, repositoryInte.ErrNotFound) {
-					return ErrAccountNotFound
+				if errors.Is(err, Repository.ErrNotFound) {
+					return Service.ErrAccountNotFound
 				}
-				if errors.Is(err, repositoryInte.ErrConcurrentUpdate) {
-					return ErrConcurrentUpdate
+				if errors.Is(err, Repository.ErrConcurrentUpdate) {
+					return Service.ErrConcurrentUpdate
 				}
 				log.Printf("failed to update account balance: %v", err)
-				return ErrInternal
+				return Service.ErrInternal
 			}
 		}
 
 		payment.TaskID = taskID
 		if err := txRepo.TaskPayment.Create(payment); err != nil {
 			log.Printf("failed to create task payment: %v", err)
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		return nil
 	})
 }
 
 func (s *budgetService) UpdatePayment(userID uint64, payment *models.TaskPayment) error {
-	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+	return s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		oldPayment, err := txRepo.TaskPayment.GetByID(payment.ID)
 		if err != nil {
-			if errors.Is(err, repositoryInte.ErrNotFound) {
-				return ErrBudgetNotFound
+			if errors.Is(err, Repository.ErrNotFound) {
+				return Service.ErrBudgetNotFound
 			}
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		task, err := txRepo.Task.GetByID(payment.TaskID)
 		if err != nil {
-			if errors.Is(err, repositoryInte.ErrNotFound) {
-				return ErrTaskNotFound
+			if errors.Is(err, Repository.ErrNotFound) {
+				return Service.ErrTaskNotFound
 			}
 			log.Printf("fail to get task %d :%v", payment.TaskID, err)
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpUpdate); err != nil {
 			return err
 		}
 
 		if payment.BudgetID != oldPayment.BudgetID {
-			return ErrInvalidInput
+			return Service.ErrInvalidInput
 		}
 
 		projBudget, err := txRepo.ProjectBudget.GetByID(payment.BudgetID)
 		if err != nil {
-			return ErrInternal
+			return Service.ErrInternal
 		}
 
 		delta := payment.Amount - oldPayment.Amount
 		if delta != 0 {
 			if delta > 0 {
 				if err := txRepo.ProjectBudget.AddUsed(payment.BudgetID, delta); err != nil {
-					return ErrInternal
+					return Service.ErrInternal
 				}
 				if projBudget.AccountID != 0 {
 					_, err := txRepo.Account.AdjustBalance(projBudget.AccountID, -delta)
 					if err != nil {
-						if errors.Is(err, repositoryInte.ErrNotFound) {
-							return ErrAccountNotFound
+						if errors.Is(err, Repository.ErrNotFound) {
+							return Service.ErrAccountNotFound
 						}
-						if errors.Is(err, repositoryInte.ErrConcurrentUpdate) {
-							return ErrConcurrentUpdate
+						if errors.Is(err, Repository.ErrConcurrentUpdate) {
+							return Service.ErrConcurrentUpdate
 						}
 						log.Printf("failed to update account balance: %v", err)
-						return ErrInternal
+						return Service.ErrInternal
 					}
 				}
 			} else {
 				dec := -delta
 				if err := txRepo.ProjectBudget.SubtractUsed(payment.BudgetID, dec); err != nil {
-					return ErrInternal
+					return Service.ErrInternal
 				}
 				if projBudget.AccountID != 0 {
 					_, err := txRepo.Account.AdjustBalance(projBudget.AccountID, dec)
 					if err != nil {
-						if errors.Is(err, repositoryInte.ErrNotFound) {
-							return ErrAccountNotFound
+						if errors.Is(err, Repository.ErrNotFound) {
+							return Service.ErrAccountNotFound
 						}
-						if errors.Is(err, repositoryInte.ErrConcurrentUpdate) {
-							return ErrConcurrentUpdate
+						if errors.Is(err, Repository.ErrConcurrentUpdate) {
+							return Service.ErrConcurrentUpdate
 						}
 						log.Printf("failed to update account balance: %v", err)
-						return ErrInternal
+						return Service.ErrInternal
 					}
 				}
 			}
 		}
 
 		if err := txRepo.TaskPayment.Update(payment); err != nil {
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		return nil
 	})
 }
 
 func (s *budgetService) DeletePayment(userID, paymentID uint64) error {
-	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+	return s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		payment, err := txRepo.TaskPayment.GetByID(paymentID)
 		if err != nil {
-			if errors.Is(err, repositoryInte.ErrNotFound) {
-				return ErrBudgetNotFound
+			if errors.Is(err, Repository.ErrNotFound) {
+				return Service.ErrBudgetNotFound
 			}
-			return ErrInternal
+			return Service.ErrInternal
 		}
 
 		task, err := txRepo.Task.GetByID(payment.TaskID)
 		if err != nil {
-			if errors.Is(err, repositoryInte.ErrNotFound) {
-				return ErrTaskNotFound
+			if errors.Is(err, Repository.ErrNotFound) {
+				return Service.ErrTaskNotFound
 			}
 			log.Printf("fail to get task %d :%v", payment.TaskID, err)
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpDelete); err != nil {
 			return err
@@ -375,29 +356,29 @@ func (s *budgetService) DeletePayment(userID, paymentID uint64) error {
 
 		projBudget, err := txRepo.ProjectBudget.GetByID(payment.BudgetID)
 		if err != nil {
-			return ErrInternal
+			return Service.ErrInternal
 		}
 
 		if err := txRepo.ProjectBudget.SubtractUsed(payment.BudgetID, payment.Amount); err != nil {
-			return ErrInternal
+			return Service.ErrInternal
 		}
 
 		if projBudget.AccountID != 0 {
 			_, err := txRepo.Account.AdjustBalance(projBudget.AccountID, payment.Amount)
 			if err != nil {
-				if errors.Is(err, repositoryInte.ErrNotFound) {
-					return ErrAccountNotFound
+				if errors.Is(err, Repository.ErrNotFound) {
+					return Service.ErrAccountNotFound
 				}
-				if errors.Is(err, repositoryInte.ErrConcurrentUpdate) {
-					return ErrConcurrentUpdate
+				if errors.Is(err, Repository.ErrConcurrentUpdate) {
+					return Service.ErrConcurrentUpdate
 				}
 				log.Printf("failed to update account balance: %v", err)
-				return ErrInternal
+				return Service.ErrInternal
 			}
 		}
 
 		if err := txRepo.TaskPayment.Delete(paymentID); err != nil {
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		return nil
 	})
@@ -406,11 +387,11 @@ func (s *budgetService) DeletePayment(userID, paymentID uint64) error {
 func (s *budgetService) GetPaymentByTaskID(userID, taskID uint64) ([]*dto.TaskPaymentResponse, error) {
 	task, err := s.taskRepo.GetByID(taskID)
 	if err != nil {
-		if errors.Is(err, repositoryInte.ErrNotFound) {
-			return nil, ErrTaskNotFound
+		if errors.Is(err, Repository.ErrNotFound) {
+			return nil, Service.ErrTaskNotFound
 		}
 		log.Printf("fail to get task %d :%v", taskID, err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 	if err = s.checkProjectAccessibility(userID, task.ProjectID, permission.OpRead); err != nil {
 		return nil, err
@@ -418,7 +399,7 @@ func (s *budgetService) GetPaymentByTaskID(userID, taskID uint64) ([]*dto.TaskPa
 	budgets, err := s.taskBudgetRepo.GetByTaskID(taskID)
 	if err != nil {
 		log.Printf("failed to get budgets for task %d: %v", taskID, err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 
 	result := make([]*dto.TaskPaymentResponse, len(budgets))

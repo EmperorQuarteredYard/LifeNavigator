@@ -1,23 +1,24 @@
 package service
 
 import (
-	"LifeNavigator/internal/repository"
+	"LifeNavigator/internal/interfaces/Repository"
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/pkg/permission"
 	"log"
 )
 
 type projectBase struct {
-	projectRepo repository.ProjectRepository
+	projectRepo Repository.ProjectRepository
 }
 
 func (s *projectBase) checkProjectOwnership(projectID uint64, userID uint64) error {
 	owned, err := s.projectRepo.CheckOwnership(userID, projectID)
 	if err != nil {
 		log.Printf("failed to check project ownership %d: %v", projectID, err)
-		return ErrInternal
+		return Service.ErrInternal
 	}
 	if !owned {
-		return ErrForbidden
+		return Service.ErrForbidden
 	}
 	return nil
 }
@@ -26,10 +27,10 @@ func (s *projectBase) checkProjectAccessibility(userID, projectID uint64, operat
 	result, err := s.projectRepo.CheckAccessibility(userID, projectID, operation, userID == 0)
 	if err != nil {
 		log.Printf("failed to check project accessibility %d: %v", projectID, err)
-		return ErrInternal
+		return Service.ErrInternal
 	}
 	if !result {
-		return ErrForbidden
+		return Service.ErrForbidden
 	}
 	return nil
 }

@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"LifeNavigator/internal/interfaces/repositoryInte"
+	"LifeNavigator/internal/interfaces/Repository"
 	"LifeNavigator/internal/models"
 	"errors"
 
@@ -12,7 +12,7 @@ type inviteCodeRepository struct {
 	*baseRepository
 }
 
-func NewInviteCodeRepository(db *gorm.DB) repositoryInte.InviteCodeRepository {
+func NewInviteCodeRepository(db *gorm.DB) Repository.InviteCodeRepository {
 	return &inviteCodeRepository{baseRepository: &baseRepository{db: db}}
 }
 
@@ -51,15 +51,15 @@ func (r *inviteCodeRepository) UseCodeByToken(token string) error {
 		err := r.db.Where("token = ?", token).First(&code).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return repositoryInte.ErrNotFound
+				return Repository.ErrNotFound
 			}
 			return err
 		}
 		if code.Count >= code.Amount {
-			return repositoryInte.ErrInviteCodeUsed
+			return Repository.ErrInviteCodeUsed
 		}
 		// 理论上不会走到这里，但为安全返回未知错误
-		return repositoryInte.ErrUnexpected
+		return Repository.ErrUnexpected
 	}
 
 	return nil
@@ -68,7 +68,7 @@ func (r *inviteCodeRepository) Delete(code *models.InviteCode) error {
 	err := r.db.Delete(code).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return repositoryInte.ErrNotFound
+			return Repository.ErrNotFound
 		}
 		return err
 	}
@@ -80,7 +80,7 @@ func (r *inviteCodeRepository) FindByToken(token string) (*models.InviteCode, er
 	err := r.db.Where("token = ?", token).First(&code).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, repositoryInte.ErrNotFound
+			return nil, Repository.ErrNotFound
 		}
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (r *inviteCodeRepository) FindByID(id int64) (*models.InviteCode, error) {
 	err := r.db.First(&code, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, repositoryInte.ErrNotFound
+			return nil, Repository.ErrNotFound
 		}
 		return nil, err
 	}

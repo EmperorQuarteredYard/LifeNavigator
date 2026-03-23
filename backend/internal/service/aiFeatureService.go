@@ -1,8 +1,9 @@
 package service
 
 import (
+	"LifeNavigator/internal/interfaces/Repository"
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
-	"LifeNavigator/internal/repository"
 	"bufio"
 	"context"
 	"encoding/json"
@@ -15,37 +16,15 @@ import (
 	"time"
 )
 
-type AIFeatureService interface {
-	ReduceProject(ctx context.Context, userID uint64, projectDescription string, accountSummary string, eventChan chan<- StreamEvent) error
-	Summary(ctx context.Context, userID uint64, startTime, endTime time.Time, eventChan chan<- StreamEvent) (string, error)
-	UpdateUserProfile(userID uint64, profile string) error
-	GetUserCompletedTasks(userID uint64, startTime, endTime time.Time) ([]models.Task, string, error)
-}
-
-type StreamEvent struct {
-	Type    string
-	Content interface{}
-}
-
 type aiFeatureService struct {
-	transactor repository.Transactor
+	transactor Repository.Transactor
 }
 
-func NewAIFeatureService(transactor repository.Transactor) AIFeatureService {
+func NewAIFeatureService(transactor Repository.Transactor) Service.AIFeatureService {
 	return &aiFeatureService{
 		transactor: transactor,
 	}
 }
-
-const (
-	EventTypeProjectCreated = "project_created"
-	EventTypeTaskCreated    = "task_created"
-	EventTypeBudgetCreated  = "budget_created"
-	EventTypeComplete       = "stream_complete"
-	EventTypeError          = "stream_error"
-	EventTypeSummaryContent = "summary_content"
-	StreamEndMarker         = "[STREAM_END]"
-)
 
 type GLMMessage struct {
 	Role    string `json:"role"`
@@ -91,12 +70,12 @@ type ParsedBudget struct {
 	Budget float64 `json:"budget"`
 }
 
-func (s *aiFeatureService) ReduceProject(ctx context.Context, userID uint64, projectDescription string, accountSummary string, eventChan chan<- StreamEvent) error {
+func (s *aiFeatureService) ReduceProject(ctx context.Context, userID uint64, projectDescription string, accountSummary string, eventChan chan<- Service.StreamEvent) error {
 	defer close(eventChan)
 
 	glmToken := os.Getenv("GLM_TOKEN")
 	if glmToken == "" {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "GLM_TOKEN not configured"}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: "GLM_TOKEN not configured"}
 		return fmt.Errorf("GLM_TOKEN not configured")
 	}
 
@@ -115,13 +94,13 @@ func (s *aiFeatureService) ReduceProject(ctx context.Context, userID uint64, pro
 
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "Failed to marshal request"}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: "Failed to marshal request"}
 		return err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://open.bigmodel.cn/api/paas/v4/chat/completions", strings.NewReader(string(jsonBody)))
 	if err != nil {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "Failed to create request"}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: "Failed to create request"}
 		return err
 	}
 
@@ -131,14 +110,14 @@ func (s *aiFeatureService) ReduceProject(ctx context.Context, userID uint64, pro
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "Failed to call GLM API"}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: "Failed to call GLM API"}
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		eventChan <- StreamEvent{Type: EventTypeError, Content: fmt.Sprintf("GLM API error: %s", string(body))}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: fmt.Sprintf("GLM API error: %s", string(body))}
 		return fmt.Errorf("GLM API returned status %d", resp.StatusCode)
 	}
 
@@ -171,7 +150,7 @@ func (s *aiFeatureService) ReduceProject(ctx context.Context, userID uint64, pro
 			log.Printf("GLM API stream ended normally (EOF)")
 		} else {
 			log.Printf("Error reading GLM API stream: %v", err)
-			eventChan <- StreamEvent{Type: EventTypeError, Content: fmt.Sprintf("Error reading stream: %v", err)}
+			eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: fmt.Sprintf("Error reading stream: %v", err)}
 			return err
 		}
 	}
@@ -268,23 +247,23 @@ type AIResponse struct {
 	Budgets []ParsedBudget `json:"budgets"`
 }
 
-func (s *aiFeatureService) parseAndCreateEntities(ctx context.Context, userID uint64, content string, eventChan chan<- StreamEvent) error {
+func (s *aiFeatureService) parseAndCreateEntities(ctx context.Context, userID uint64, content string, eventChan chan<- Service.StreamEvent) error {
 	jsonContent := s.extractJSON(content)
 	if jsonContent == "" {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "Failed to extract valid JSON from AI response"}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: "Failed to extract valid JSON from AI response"}
 		return fmt.Errorf("failed to extract valid JSON from AI response")
 	}
 
 	var aiResp AIResponse
 	if err := json.Unmarshal([]byte(jsonContent), &aiResp); err != nil {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: fmt.Sprintf("Failed to parse AI response: %v", err)}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: fmt.Sprintf("Failed to parse AI response: %v", err)}
 		return err
 	}
 
 	var createdProject *models.Project
 	taskIDMap := make(map[int]uint64)
 
-	err := s.transactor.WithinTransaction(ctx, func(txRepo repository.TxRepositories) error {
+	err := s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		project := &models.Project{
 			Name:        aiResp.Project.Name,
 			Description: aiResp.Project.Description,
@@ -296,8 +275,8 @@ func (s *aiFeatureService) parseAndCreateEntities(ctx context.Context, userID ui
 		}
 		createdProject = project
 
-		eventChan <- StreamEvent{
-			Type: EventTypeProjectCreated,
+		eventChan <- Service.StreamEvent{
+			Type: Service.EventTypeProjectCreated,
 			Content: map[string]interface{}{
 				"id":          project.ID,
 				"name":        project.Name,
@@ -337,8 +316,8 @@ func (s *aiFeatureService) parseAndCreateEntities(ctx context.Context, userID ui
 				}
 			}
 
-			eventChan <- StreamEvent{
-				Type: EventTypeTaskCreated,
+			eventChan <- Service.StreamEvent{
+				Type: Service.EventTypeTaskCreated,
 				Content: map[string]interface{}{
 					"id":              task.ID,
 					"project_id":      task.ProjectID,
@@ -369,8 +348,8 @@ func (s *aiFeatureService) parseAndCreateEntities(ctx context.Context, userID ui
 				return fmt.Errorf("failed to create budget: %w", err)
 			}
 
-			eventChan <- StreamEvent{
-				Type: EventTypeBudgetCreated,
+			eventChan <- Service.StreamEvent{
+				Type: Service.EventTypeBudgetCreated,
 				Content: map[string]interface{}{
 					"id":         budget.ID,
 					"project_id": budget.ProjectID,
@@ -384,14 +363,14 @@ func (s *aiFeatureService) parseAndCreateEntities(ctx context.Context, userID ui
 	})
 
 	if err != nil {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: err.Error()}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: err.Error()}
 		return err
 	}
 
 	log.Printf("Project created successfully: ID=%d, Name=%s", createdProject.ID, createdProject.Name)
 
-	eventChan <- StreamEvent{
-		Type: EventTypeComplete,
+	eventChan <- Service.StreamEvent{
+		Type: Service.EventTypeComplete,
 		Content: map[string]string{
 			"message": "Project created successfully",
 		},
@@ -428,23 +407,23 @@ func (s *aiFeatureService) extractJSON(content string) string {
 	return content[jsonStart:jsonEnd]
 }
 
-func (s *aiFeatureService) Summary(ctx context.Context, userID uint64, startTime, endTime time.Time, eventChan chan<- StreamEvent) (string, error) {
+func (s *aiFeatureService) Summary(ctx context.Context, userID uint64, startTime, endTime time.Time, eventChan chan<- Service.StreamEvent) (string, error) {
 	defer close(eventChan)
 
 	glmToken := os.Getenv("GLM_TOKEN")
 	if glmToken == "" {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "GLM_TOKEN not configured"}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: "GLM_TOKEN not configured"}
 		return "", fmt.Errorf("GLM_TOKEN not configured")
 	}
 
 	completedTasks, currentProfile, err := s.GetUserCompletedTasks(userID, startTime, endTime)
 	if err != nil {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: err.Error()}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: err.Error()}
 		return "", err
 	}
 
 	if len(completedTasks) == 0 {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "No completed tasks found in the specified time range"}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: "No completed tasks found in the specified time range"}
 		return "", fmt.Errorf("no completed tasks found")
 	}
 
@@ -463,13 +442,13 @@ func (s *aiFeatureService) Summary(ctx context.Context, userID uint64, startTime
 
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "Failed to marshal request"}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: "Failed to marshal request"}
 		return "", err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://open.bigmodel.cn/api/paas/v4/chat/completions", strings.NewReader(string(jsonBody)))
 	if err != nil {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "Failed to create request"}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: "Failed to create request"}
 		return "", err
 	}
 
@@ -479,14 +458,14 @@ func (s *aiFeatureService) Summary(ctx context.Context, userID uint64, startTime
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		eventChan <- StreamEvent{Type: EventTypeError, Content: "Failed to call GLM API"}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: "Failed to call GLM API"}
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		eventChan <- StreamEvent{Type: EventTypeError, Content: fmt.Sprintf("GLM API error: %s", string(body))}
+		eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: fmt.Sprintf("GLM API error: %s", string(body))}
 		return "", fmt.Errorf("GLM API returned status %d", resp.StatusCode)
 	}
 
@@ -512,8 +491,8 @@ func (s *aiFeatureService) Summary(ctx context.Context, userID uint64, startTime
 		if len(glmResp.Choices) > 0 && glmResp.Choices[0].Delta.Content != "" {
 			content := glmResp.Choices[0].Delta.Content
 			fullContent.WriteString(content)
-			eventChan <- StreamEvent{
-				Type:    EventTypeSummaryContent,
+			eventChan <- Service.StreamEvent{
+				Type:    Service.EventTypeSummaryContent,
 				Content: map[string]string{"content": content},
 			}
 		}
@@ -524,13 +503,13 @@ func (s *aiFeatureService) Summary(ctx context.Context, userID uint64, startTime
 			log.Printf("GLM API stream ended normally (EOF) during Summary")
 		} else {
 			log.Printf("Error reading GLM API stream during Summary: %v", err)
-			eventChan <- StreamEvent{Type: EventTypeError, Content: fmt.Sprintf("Error reading stream: %v", err)}
+			eventChan <- Service.StreamEvent{Type: Service.EventTypeError, Content: fmt.Sprintf("Error reading stream: %v", err)}
 			return "", err
 		}
 	}
 
-	eventChan <- StreamEvent{
-		Type: EventTypeComplete,
+	eventChan <- Service.StreamEvent{
+		Type: Service.EventTypeComplete,
 		Content: map[string]string{
 			"message": "Summary completed successfully",
 		},
@@ -543,7 +522,7 @@ func (s *aiFeatureService) GetUserCompletedTasks(userID uint64, startTime, endTi
 	var completedTasks []models.Task
 	var currentProfile string
 
-	err := s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+	err := s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		var err error
 		completedTasks, err = txRepo.Task.ListCompletedByUserIDAndTimeRange(userID, startTime, endTime)
 		if err != nil {
@@ -563,7 +542,7 @@ func (s *aiFeatureService) GetUserCompletedTasks(userID uint64, startTime, endTi
 }
 
 func (s *aiFeatureService) UpdateUserProfile(userID uint64, profile string) error {
-	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+	return s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		return txRepo.User.UpdateProfile(userID, profile)
 	})
 }
@@ -646,7 +625,7 @@ func (s *aiFeatureService) extractProfileUpdate(content string) string {
 }
 
 func (s *aiFeatureService) updateUserProfile(userID uint64, profile string) error {
-	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+	return s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		return txRepo.User.UpdateProfile(userID, profile)
 	})
 }

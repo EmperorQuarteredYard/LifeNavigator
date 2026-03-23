@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"LifeNavigator/internal/service"
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/pkg/dto"
 	"encoding/json"
 	"fmt"
@@ -13,12 +13,12 @@ import (
 )
 
 type AIFeatureController struct {
-	aiFeatureServ service.AIFeatureService
-	accountServ   service.AccountService
+	aiFeatureServ Service.AIFeatureService
+	accountServ   Service.AccountService
 	*BaseController
 }
 
-func NewAIFeatureController(aiFeatureServ service.AIFeatureService, accountServ service.AccountService) *AIFeatureController {
+func NewAIFeatureController(aiFeatureServ Service.AIFeatureService, accountServ Service.AccountService) *AIFeatureController {
 	return &AIFeatureController{
 		aiFeatureServ:  aiFeatureServ,
 		accountServ:    accountServ,
@@ -48,7 +48,7 @@ func (ctl *AIFeatureController) ReduceProject(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("Access-Control-Allow-Origin", "*")
 
-	eventChan := make(chan service.StreamEvent, 100)
+	eventChan := make(chan Service.StreamEvent, 100)
 
 	go func() {
 		err := ctl.aiFeatureServ.ReduceProject(
@@ -76,7 +76,7 @@ func (ctl *AIFeatureController) ReduceProject(c *gin.Context) {
 		c.Writer.Flush()
 	}
 
-	if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", service.StreamEndMarker); err != nil {
+	if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", Service.StreamEndMarker); err != nil {
 		log.Printf("Failed to write stream end marker: %v", err)
 		return
 	}
@@ -129,7 +129,7 @@ func (ctl *AIFeatureController) Summary(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("Access-Control-Allow-Origin", "*")
 
-	eventChan := make(chan service.StreamEvent, 100)
+	eventChan := make(chan Service.StreamEvent, 100)
 	contentChan := make(chan string, 1)
 
 	go func() {
@@ -174,7 +174,7 @@ func (ctl *AIFeatureController) Summary(c *gin.Context) {
 		}
 	}()
 
-	if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", service.StreamEndMarker); err != nil {
+	if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", Service.StreamEndMarker); err != nil {
 		log.Printf("Failed to write stream end marker: %v", err)
 		return
 	}

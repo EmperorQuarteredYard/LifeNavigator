@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"LifeNavigator/internal/interfaces/repositoryInte"
+	"LifeNavigator/internal/interfaces/Repository"
 	"LifeNavigator/internal/models"
 	"errors"
 	"time"
@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewAccountRepository(db *gorm.DB) repositoryInte.AccountRepository {
+func NewAccountRepository(db *gorm.DB) Repository.AccountRepository {
 	return &accountRepository{baseRepository: &baseRepository{db: db}, updateMaxTry: 3}
 }
 
@@ -47,7 +47,7 @@ func (a *accountRepository) AdjustNetBalance(accountID uint64, amount float64) (
 		err := a.db.First(account, accountID).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return 0, repositoryInte.ErrNotFound
+				return 0, Repository.ErrNotFound
 			}
 			return 0, err
 		}
@@ -67,7 +67,7 @@ func (a *accountRepository) AdjustNetBalance(accountID uint64, amount float64) (
 
 		if result.RowsAffected == 0 {
 			if i == a.updateMaxTry-1 {
-				return 0, repositoryInte.ErrConcurrentUpdate
+				return 0, Repository.ErrConcurrentUpdate
 			}
 			time.Sleep(10 * time.Millisecond)
 			continue
@@ -76,7 +76,7 @@ func (a *accountRepository) AdjustNetBalance(accountID uint64, amount float64) (
 		return newNetBalance, nil
 	}
 
-	return 0, repositoryInte.ErrConcurrentUpdate
+	return 0, Repository.ErrConcurrentUpdate
 }
 
 func (a *accountRepository) AdjustBalance(accountID uint64, amount float64) (float64, error) {
@@ -93,7 +93,7 @@ func (a *accountRepository) AdjustBalance(accountID uint64, amount float64) (flo
 		err := a.db.First(account, accountID).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return 0, repositoryInte.ErrNotFound
+				return 0, Repository.ErrNotFound
 			}
 			return 0, err
 		}
@@ -113,7 +113,7 @@ func (a *accountRepository) AdjustBalance(accountID uint64, amount float64) (flo
 
 		if result.RowsAffected == 0 {
 			if i == a.updateMaxTry-1 {
-				return 0, repositoryInte.ErrConcurrentUpdate
+				return 0, Repository.ErrConcurrentUpdate
 			}
 			time.Sleep(10 * time.Millisecond)
 			continue
@@ -122,7 +122,7 @@ func (a *accountRepository) AdjustBalance(accountID uint64, amount float64) (flo
 		return newBalance, nil
 	}
 
-	return 0, repositoryInte.ErrConcurrentUpdate
+	return 0, Repository.ErrConcurrentUpdate
 }
 
 func (a *accountRepository) GetByID(accountID uint64) (*models.Account, error) {
@@ -130,7 +130,7 @@ func (a *accountRepository) GetByID(accountID uint64) (*models.Account, error) {
 	err := a.db.First(account, accountID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, repositoryInte.ErrNotFound
+			return nil, Repository.ErrNotFound
 		}
 		return nil, err
 	}

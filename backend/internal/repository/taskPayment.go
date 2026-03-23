@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"LifeNavigator/internal/interfaces/repositoryInte"
+	"LifeNavigator/internal/interfaces/Repository"
 	"LifeNavigator/internal/models"
 	"errors"
 	"time"
@@ -10,7 +10,7 @@ import (
 )
 
 // NewTaskPaymentRepository 创建一个 TaskBudgetRepository 实例
-func NewTaskPaymentRepository(db *gorm.DB) repositoryInte.TaskBudgetRepository {
+func NewTaskPaymentRepository(db *gorm.DB) Repository.TaskBudgetRepository {
 	return &taskBudgetRepository{baseRepository: &baseRepository{db: db}}
 }
 
@@ -45,7 +45,7 @@ func (r *taskBudgetRepository) GetByID(id uint64) (*models.TaskPayment, error) {
 	result := r.db.First(&budget, id)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, repositoryInte.ErrNotFound
+			return nil, Repository.ErrNotFound
 		}
 		return nil, result.Error
 	}
@@ -64,7 +64,7 @@ func (r *taskBudgetRepository) Update(budget *models.TaskPayment) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return repositoryInte.ErrNotFound
+		return Repository.ErrNotFound
 	}
 	return nil
 }
@@ -75,7 +75,7 @@ func (r *taskBudgetRepository) Delete(id uint64) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return repositoryInte.ErrNotFound
+		return Repository.ErrNotFound
 	}
 	return nil
 }

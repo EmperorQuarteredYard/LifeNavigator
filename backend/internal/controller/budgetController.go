@@ -1,8 +1,8 @@
 package controller
 
 import (
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
-	"LifeNavigator/internal/service"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/errcode"
 	"strconv"
@@ -10,14 +10,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewBudgetController(budgetServ service.BudgetService) *BudgetController {
+func NewBudgetController(budgetServ Service.BudgetService) *BudgetController {
 	return &BudgetController{
 		budgetServ: budgetServ,
 	}
 }
 
 type BudgetController struct {
-	budgetServ service.BudgetService
+	budgetServ Service.BudgetService
 	*BaseController
 }
 

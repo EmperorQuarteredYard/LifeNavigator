@@ -1,14 +1,14 @@
 package repository
 
 import (
-	"LifeNavigator/internal/interfaces/repositoryInte"
+	"LifeNavigator/internal/interfaces/Repository"
 	"LifeNavigator/internal/models"
 	"errors"
 
 	"gorm.io/gorm"
 )
 
-func NewKanbanRepository(db *gorm.DB) repositoryInte.KanbanRepository {
+func NewKanbanRepository(db *gorm.DB) Repository.KanbanRepository {
 	return &kanbanRepository{baseRepository: &baseRepository{db: db}}
 }
 
@@ -25,7 +25,7 @@ func (r *kanbanRepository) GetByID(id uint64) (*models.Kanban, error) {
 	err := r.db.First(&kanban, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, repositoryInte.ErrNotFound
+			return nil, Repository.ErrNotFound
 		}
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func (r *kanbanRepository) GetByIDWithProjects(id uint64) (*models.Kanban, error
 	err := r.db.Preload("Projects").First(&kanban, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, repositoryInte.ErrNotFound
+			return nil, Repository.ErrNotFound
 		}
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (r *kanbanRepository) Update(kanban *models.Kanban) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return repositoryInte.ErrNotFound
+		return Repository.ErrNotFound
 	}
 	return nil
 }
@@ -71,7 +71,7 @@ func (r *kanbanRepository) Delete(id uint64) error {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
-			return repositoryInte.ErrNotFound
+			return Repository.ErrNotFound
 		}
 		return nil
 	})
@@ -127,7 +127,7 @@ func (r *kanbanRepository) GetDefaultKanban(userID uint64) (*models.Kanban, erro
 	err := r.db.Where("user_id = ? AND is_default = ?", userID, true).First(&kanban).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, repositoryInte.ErrNotFound
+			return nil, Repository.ErrNotFound
 		}
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (r *kanbanRepository) SetDefaultKanban(userID, kanbanID uint64) error {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
-			return repositoryInte.ErrNotFound
+			return Repository.ErrNotFound
 		}
 		return nil
 	})

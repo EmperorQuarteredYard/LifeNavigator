@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"LifeNavigator/internal/interfaces/repositoryInte"
+	"LifeNavigator/internal/interfaces/Repository"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/pkg/permission"
 	"LifeNavigator/pkg/scheduler"
@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewProjectRepository(db *gorm.DB) repositoryInte.ProjectRepository {
+func NewProjectRepository(db *gorm.DB) Repository.ProjectRepository {
 	return &projectRepository{baseRepository: &baseRepository{db: db}}
 }
 
@@ -25,7 +25,7 @@ func (r *projectRepository) CheckAccessibility(userID uint64, projectID uint64, 
 	err := r.db.Where("id = ?", projectID).First(&project).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, repositoryInte.ErrNotFound
+			return false, Repository.ErrNotFound
 		}
 		return false, err
 	}
@@ -137,7 +137,7 @@ func (r *projectRepository) GetByID(id uint64) (*models.Project, error) {
 	result := r.db.First(&project, id)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, repositoryInte.ErrNotFound
+			return nil, Repository.ErrNotFound
 		}
 		return nil, result.Error
 	}
@@ -161,7 +161,7 @@ func (r *projectRepository) Update(project *models.Project) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return repositoryInte.ErrNotFound
+		return Repository.ErrNotFound
 	}
 	return nil
 }
@@ -176,7 +176,7 @@ func (r *projectRepository) Delete(id uint64) error {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
-			return repositoryInte.ErrNotFound
+			return Repository.ErrNotFound
 		}
 		return nil
 	})

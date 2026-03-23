@@ -1,52 +1,19 @@
 package controller
 
 import (
-	"LifeNavigator/internal/service"
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/middleWare/jwt"
 	"LifeNavigator/pkg/errcode"
 	"LifeNavigator/pkg/response"
 	"errors"
 	"io"
 	"log"
-	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 type BaseController struct{}
-
-var codeToHttpStatus = map[int]int{
-	errcode.Success:                        http.StatusOK,
-	errcode.StatusInvalidToken:             http.StatusUnauthorized,
-	errcode.StatusMissedToken:              http.StatusUnauthorized,
-	errcode.StatusUserNotAuthenticated:     http.StatusUnauthorized,
-	errcode.StatusInvalidUserData:          http.StatusBadRequest,
-	errcode.StatusInsufficientPermissions:  http.StatusForbidden,
-	errcode.StatusInvalidParams:            http.StatusBadRequest,
-	errcode.StatusUnauthorized:             http.StatusUnauthorized,
-	errcode.StatusNotFound:                 http.StatusNotFound,
-	errcode.StatusDuplicate:                http.StatusConflict,
-	errcode.StatusInsufficientPerm:         http.StatusForbidden,
-	errcode.StatusRegisterNameExist:        http.StatusConflict,
-	errcode.StatusLoginNameOrPasswordWrong: http.StatusUnauthorized,
-	errcode.StatusUserNotFound:             http.StatusNotFound,
-	errcode.StatusInviteCodeNotFound:       http.StatusNotFound,
-	errcode.StatusInviteCodeUsed:           http.StatusBadRequest,
-	errcode.StatusProjectNotFound:          http.StatusNotFound,
-	errcode.StatusTaskNotFound:             http.StatusNotFound,
-	errcode.StatusBudgetNotFound:           http.StatusNotFound,
-	errcode.StatusPrerequisiteNotFound:     http.StatusNotFound,
-	errcode.StatusServerError:              http.StatusInternalServerError,
-	errcode.StatusDatabaseError:            http.StatusInternalServerError,
-}
-
-func getHttpStatus(code int) int {
-	if httpStatus, ok := codeToHttpStatus[code]; ok {
-		return httpStatus
-	}
-	return http.StatusInternalServerError
-}
 
 // BindJSON 绑定 JSON 并自动处理错误
 func (b *BaseController) BindJSON(c *gin.Context, obj interface{}) bool {
@@ -84,39 +51,39 @@ func (b *BaseController) ServerError(c *gin.Context) {
 // 为保证性能，请视情况使用
 func (b *BaseController) Error(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, service.ErrUserNotFound):
+	case errors.Is(err, Service.ErrUserNotFound):
 		b.Code(c, errcode.StatusUserNotFound)
-	case errors.Is(err, service.ErrUserNameExists):
+	case errors.Is(err, Service.ErrUserNameExists):
 		b.Code(c, errcode.StatusRegisterNameExist)
-	case errors.Is(err, service.ErrPasswordWrong):
+	case errors.Is(err, Service.ErrPasswordWrong):
 		b.Code(c, errcode.StatusLoginNameOrPasswordWrong)
-	case errors.Is(err, service.ErrForbidden):
+	case errors.Is(err, Service.ErrForbidden):
 		b.Code(c, errcode.StatusInsufficientPerm)
-	case errors.Is(err, service.ErrUserInfoIncomplete):
+	case errors.Is(err, Service.ErrUserInfoIncomplete):
 		b.Code(c, errcode.StatusInvalidUserData)
-	case errors.Is(err, service.ErrInviteCodeNotFound):
+	case errors.Is(err, Service.ErrInviteCodeNotFound):
 		b.Code(c, errcode.StatusInviteCodeNotFound)
-	case errors.Is(err, service.ErrInviteCodeUsed):
+	case errors.Is(err, Service.ErrInviteCodeUsed):
 		b.Code(c, errcode.StatusInviteCodeUsed)
-	case errors.Is(err, service.ErrInvalidToken):
+	case errors.Is(err, Service.ErrInvalidToken):
 		b.Code(c, errcode.StatusInvalidToken)
-	case errors.Is(err, service.ErrProjectNotFound):
+	case errors.Is(err, Service.ErrProjectNotFound):
 		b.Code(c, errcode.StatusProjectNotFound)
-	case errors.Is(err, service.ErrTaskNotFound):
+	case errors.Is(err, Service.ErrTaskNotFound):
 		b.Code(c, errcode.StatusTaskNotFound)
-	case errors.Is(err, service.ErrKanbanNotFound):
+	case errors.Is(err, Service.ErrKanbanNotFound):
 		b.Code(c, errcode.StatusNotFound)
-	case errors.Is(err, service.ErrTaskDependencyNotFound):
+	case errors.Is(err, Service.ErrTaskDependencyNotFound):
 		b.Code(c, errcode.StatusPrerequisiteNotFound)
-	case errors.Is(err, service.ErrTaskBudgetNotFound) ||
-		errors.Is(err, service.ErrProjectBudgetNotFound) ||
-		errors.Is(err, service.ErrBudgetNotFound):
+	case errors.Is(err, Service.ErrTaskBudgetNotFound) ||
+		errors.Is(err, Service.ErrProjectBudgetNotFound) ||
+		errors.Is(err, Service.ErrBudgetNotFound):
 		b.Code(c, errcode.StatusBudgetNotFound)
-	case errors.Is(err, service.ErrInternal):
+	case errors.Is(err, Service.ErrInternal):
 		b.Code(c, errcode.StatusServerError)
-	case errors.Is(err, service.ErrInvalidInput):
+	case errors.Is(err, Service.ErrInvalidInput):
 		b.Code(c, errcode.StatusInvalidParams)
-	case errors.Is(err, service.ErrDuplicate):
+	case errors.Is(err, Service.ErrDuplicate):
 		b.Code(c, errcode.StatusDuplicate)
 	default:
 		log.Printf("service 层有未映射的错误：%v", err)

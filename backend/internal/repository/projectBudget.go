@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"LifeNavigator/internal/interfaces/repositoryInte"
+	"LifeNavigator/internal/interfaces/Repository"
 	"LifeNavigator/internal/models"
 	"errors"
 
@@ -9,7 +9,7 @@ import (
 )
 
 // NewProjectBudgetRepository 创建一个 ProjectBudgetRepository 实例
-func NewProjectBudgetRepository(db *gorm.DB) repositoryInte.ProjectBudgetRepository {
+func NewProjectBudgetRepository(db *gorm.DB) Repository.ProjectBudgetRepository {
 	return &projectBudgetRepository{baseRepository: &baseRepository{db: db}}
 }
 
@@ -21,7 +21,7 @@ func (r *projectBudgetRepository) SetUsedZero(budgetID, projectID uint64) error 
 	err := r.db.Model(&models.ProjectBudget{}).Where("project_id = ? and id = ?", projectID, budgetID).Update("used", 0).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return repositoryInte.ErrNotFound
+			return Repository.ErrNotFound
 		}
 		return err
 	}
@@ -60,7 +60,7 @@ func (r *projectBudgetRepository) GetByID(id uint64) (*models.ProjectBudget, err
 	result := r.db.First(&budget, id)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, repositoryInte.ErrNotFound
+			return nil, Repository.ErrNotFound
 		}
 		return nil, result.Error
 	}
@@ -79,7 +79,7 @@ func (r *projectBudgetRepository) Update(budget *models.ProjectBudget) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return repositoryInte.ErrNotFound
+		return Repository.ErrNotFound
 	}
 	return nil
 }
@@ -90,7 +90,7 @@ func (r *projectBudgetRepository) Delete(id uint64) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return repositoryInte.ErrNotFound
+		return Repository.ErrNotFound
 	}
 	return nil
 }

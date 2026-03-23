@@ -1,9 +1,9 @@
 package service
 
 import (
-	"LifeNavigator/internal/interfaces/repositoryInte"
+	"LifeNavigator/internal/interfaces/Repository"
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
-	"LifeNavigator/internal/repository"
 	"errors"
 	"log"
 	"strconv"
@@ -11,25 +11,11 @@ import (
 	"github.com/google/uuid"
 )
 
-type InviteCodeService interface {
-	//GenerateInviteCode 生成邀请码：需要传入当前用户ID，创建者标记为当前用户；不校验权限
-	GenerateInviteCode(amount int, currentUserID uint64, role string) (*models.InviteCode, error)
-
-	//UseCode 使用邀请码：无需权限，任何人只要持有 token 即可使用
-	UseCode(token string) error
-
-	//GetCodeInfo 获取邀请码详情：只有创建者或管理员可查看（这里简化：仅创建者可查看）
-	GetCodeInfo(token string, currentUserID uint64) (*models.InviteCode, error)
-
-	//ListCodesByUser 列出当前用户创建的邀请码
-	ListCodesByUser(currentUserID uint64, offset, limit int) ([]models.InviteCode, error)
-}
-
 type inviteCodeService struct {
-	repo repository.InviteCodeRepository
+	repo Repository.InviteCodeRepository
 }
 
-func NewInviteCodeService(repo repository.InviteCodeRepository) InviteCodeService {
+func NewInviteCodeService(repo Repository.InviteCodeRepository) Service.InviteCodeService {
 	return &inviteCodeService{repo: repo}
 }
 
@@ -46,22 +32,22 @@ func (s *inviteCodeService) GenerateInviteCode(amount int, currentUserID uint64,
 	}
 	if err := s.repo.Create(code); err != nil {
 		log.Printf("failed to create invite code: %v", err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 	return code, nil
 }
 
 func (s *inviteCodeService) UseCode(token string) error {
 	err := s.repo.UseCodeByToken(token)
-	if errors.Is(err, repositoryInte.ErrNotFound) {
-		return ErrInviteCodeNotFound
+	if errors.Is(err, Repository.ErrNotFound) {
+		return Service.ErrInviteCodeNotFound
 	}
-	if errors.Is(err, repositoryInte.ErrInviteCodeUsed) {
-		return ErrInviteCodeUsed // 直接返回 repository 层的错误（也可包装）
+	if errors.Is(err, Repository.ErrInviteCodeUsed) {
+		return Service.ErrInviteCodeUsed // 直接返回 Repository 层的错误（也可包装）
 	}
 	if err != nil {
 		log.Printf("failed to use invite code %s: %v", token, err)
-		return ErrInternal
+		return Service.ErrInternal
 	}
 	return nil
 }
@@ -69,15 +55,15 @@ func (s *inviteCodeService) UseCode(token string) error {
 func (s *inviteCodeService) GetCodeInfo(token string, currentUserID uint64) (*models.InviteCode, error) {
 	code, err := s.repo.FindByToken(token)
 	if err != nil {
-		if errors.Is(err, repositoryInte.ErrNotFound) {
-			return nil, ErrInviteCodeNotFound
+		if errors.Is(err, Repository.ErrNotFound) {
+			return nil, Service.ErrInviteCodeNotFound
 		}
 		log.Printf("failed to find invite code %s: %v", token, err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 	// 校验：只有创建者才能查看详情
 	if code.InvitedBy != strconv.FormatUint(currentUserID, 10) {
-		return nil, ErrForbidden
+		return nil, Service.ErrForbidden
 	}
 	return code, nil
 }

@@ -1,33 +1,22 @@
 package service
 
 import (
-	"LifeNavigator/internal/interfaces/repositoryInte"
+	"LifeNavigator/internal/interfaces/Repository"
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
-	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
-	"context"
 	"errors"
 	"log"
 	"time"
 )
 
-type AccountService interface {
-	CreateAccount(userID uint64, account *models.Account) (*dto.Account, error)
-	DeleteAccount(userID, accountID uint64) error
-	AdjustBalance(userID, accountID uint64, amount float64) (float64, error)
-	GetByAccountID(userID, accountID uint64) (*dto.Account, error)
-	ListByUserID(userID uint64) (*dto.AccountList, error)
-	ListLinkedTask(userID, accountID uint64, startTime, endTime time.Time) (*dto.TaskList, error)
-	GetUserName(userID uint64) (string, error)
-}
-
 func NewAccountService(
-	accountRepo repository.AccountRepository,
-	taskRepo repository.TaskRepository,
-	taskBudgetRepo repository.TaskBudgetRepository,
-	userRepo repository.UserRepository,
-	transactor repository.Transactor,
-) AccountService {
+	accountRepo Repository.AccountRepository,
+	taskRepo Repository.TaskRepository,
+	taskBudgetRepo Repository.TaskBudgetRepository,
+	userRepo Repository.UserRepository,
+	transactor Repository.Transactor,
+) Service.AccountService {
 	return &accountService{
 		accountRepo:    accountRepo,
 		taskRepo:       taskRepo,
@@ -38,21 +27,21 @@ func NewAccountService(
 }
 
 type accountService struct {
-	accountRepo    repository.AccountRepository
-	taskRepo       repository.TaskRepository
-	taskBudgetRepo repository.TaskBudgetRepository
-	userRepo       repository.UserRepository
-	transactor     repository.Transactor
+	accountRepo    Repository.AccountRepository
+	taskRepo       Repository.TaskRepository
+	taskBudgetRepo Repository.TaskBudgetRepository
+	userRepo       Repository.UserRepository
+	transactor     Repository.Transactor
 }
 
 func (s *accountService) GetUserName(userID uint64) (string, error) {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
-		if errors.Is(err, repositoryInte.ErrNotFound) {
-			return "", ErrUserNotFound
+		if errors.Is(err, Repository.ErrNotFound) {
+			return "", Service.ErrUserNotFound
 		}
 		log.Printf("GetUserName error: %v", err)
-		return "", ErrInternal
+		return "", Service.ErrInternal
 	}
 	return user.Username, nil
 }
@@ -61,7 +50,7 @@ func (s *accountService) CreateAccount(userID uint64, account *models.Account) (
 	created, err := s.accountRepo.Create(account, []uint64{userID})
 	if err != nil {
 		log.Printf("CreateAccount error: %v", err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 	return &dto.Account{
 		ID:         created.ID,
@@ -77,27 +66,27 @@ func (s *accountService) DeleteAccount(userID, accountID uint64) error {
 	owned, err := s.accountRepo.CheckOwnership(userID, accountID)
 	if err != nil {
 		log.Printf("CheckOwnership error: %v", err)
-		return ErrInternal
+		return Service.ErrInternal
 	}
 	if !owned {
-		return ErrForbidden
+		return Service.ErrForbidden
 	}
 
-	return s.transactor.WithinTransaction(context.Background(), func(txRepo repository.TxRepositories) error {
+	return s.transactor.WithinTransaction(func(txRepo Repository.TxRepositories) error {
 		budgets, err := txRepo.ProjectBudget.GetByAccountID(accountID)
 		if err != nil {
-			return ErrInternal
+			return Service.ErrInternal
 		}
 
 		for _, b := range budgets {
 			if err := txRepo.ProjectBudget.UpdateAccountID(b.ID, 0); err != nil {
-				return ErrInternal
+				return Service.ErrInternal
 			}
 		}
 
 		account := &models.Account{ID: accountID}
 		if err := txRepo.Account.Delete(account); err != nil {
-			return ErrInternal
+			return Service.ErrInternal
 		}
 		return nil
 	})
@@ -107,20 +96,20 @@ func (s *accountService) AdjustBalance(userID, accountID uint64, amount float64)
 	owned, err := s.accountRepo.CheckOwnership(userID, accountID)
 	if err != nil {
 		log.Printf("CheckOwnership error: %v", err)
-		return 0, ErrInternal
+		return 0, Service.ErrInternal
 	}
 	if !owned {
-		return 0, ErrForbidden
+		return 0, Service.ErrForbidden
 	}
 
 	balance, err := s.accountRepo.AdjustBalance(accountID, amount)
 	if err != nil {
 		switch {
-		case errors.Is(err, repositoryInte.ErrNotFound):
-			return 0, ErrAccountNotFound
+		case errors.Is(err, Repository.ErrNotFound):
+			return 0, Service.ErrAccountNotFound
 		default:
 			log.Printf("AdjustBalance error: %v", err)
-			return 0, ErrInternal
+			return 0, Service.ErrInternal
 		}
 	}
 	return balance, nil
@@ -130,20 +119,20 @@ func (s *accountService) GetByAccountID(userID, accountID uint64) (*dto.Account,
 	owned, err := s.accountRepo.CheckOwnership(userID, accountID)
 	if err != nil {
 		log.Printf("CheckOwnership error: %v", err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 	if !owned {
-		return nil, ErrForbidden
+		return nil, Service.ErrForbidden
 	}
 
 	account, err := s.accountRepo.GetByID(accountID)
 	if err != nil {
 		switch {
-		case errors.Is(err, repositoryInte.ErrNotFound):
-			return nil, ErrAccountNotFound
+		case errors.Is(err, Repository.ErrNotFound):
+			return nil, Service.ErrAccountNotFound
 		default:
 			log.Printf("GetByAccountID error: %v", err)
-			return nil, ErrInternal
+			return nil, Service.ErrInternal
 		}
 	}
 	return &dto.Account{
@@ -160,7 +149,7 @@ func (s *accountService) ListByUserID(userID uint64) (*dto.AccountList, error) {
 	accounts, err := s.accountRepo.ListByUserID(userID)
 	if err != nil {
 		log.Printf("ListByUserID error: %v", err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 
 	items := make([]*dto.Account, len(accounts))
@@ -181,16 +170,16 @@ func (s *accountService) ListLinkedTask(userID, accountID uint64, startTime, end
 	owned, err := s.accountRepo.CheckOwnership(userID, accountID)
 	if err != nil {
 		log.Printf("CheckOwnership error: %v", err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 	if !owned {
-		return nil, ErrForbidden
+		return nil, Service.ErrForbidden
 	}
 
 	tasks, err := s.taskRepo.ListByAccountID(accountID, startTime, endTime)
 	if err != nil {
 		log.Printf("ListLinkedTask error: %v", err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 
 	list := make([]*dto.Task, len(tasks))

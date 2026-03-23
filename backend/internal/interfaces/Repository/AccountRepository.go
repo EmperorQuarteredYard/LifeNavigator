@@ -1,4 +1,4 @@
-package repositoryInte
+package Repository
 
 import (
 	"LifeNavigator/internal/models"

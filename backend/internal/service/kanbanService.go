@@ -1,9 +1,9 @@
 package service
 
 import (
-	"LifeNavigator/internal/interfaces/repositoryInte"
+	"LifeNavigator/internal/interfaces/Repository"
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
-	"LifeNavigator/internal/repository"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/kanbanStatus"
 	"LifeNavigator/pkg/permission"
@@ -11,22 +11,10 @@ import (
 	"log"
 )
 
-type KanbanService interface {
-	Create(userID uint64, req *dto.CreateKanbanRequest) (*dto.KanbanResponse, error)
-	GetByID(userID, id uint64) (*dto.KanbanResponse, error)
-	ListByUserID(userID uint64) (*dto.KanbanListResponse, error)
-	Update(userID uint64, id uint64, req *dto.UpdateKanbanRequest) error
-	Delete(userID, id uint64) error
-	GetKanbanTasks(userID, kanbanID uint64, status *uint8, page, pageSize int) (*dto.KanbanTaskListResponse, error)
-	GetDefaultKanbanTasks(userID uint64, status *uint8, page, pageSize int) (*dto.KanbanTaskListResponse, error)
-	SetDefaultKanban(userID, kanbanID uint64) error
-	AddProjectInCheck(userID, projectID, kanbanID uint64) error
-}
-
 type kanbanService struct {
-	kanbanRepo  repository.KanbanRepository
-	taskRepo    repository.TaskRepository
-	taskPayRepo repository.TaskBudgetRepository
+	kanbanRepo  Repository.KanbanRepository
+	taskRepo    Repository.TaskRepository
+	taskPayRepo Repository.TaskBudgetRepository
 	*projectBase
 }
 
@@ -36,11 +24,11 @@ func (s *kanbanService) AddProjectInCheck(userID, projectID, kanbanID uint64) er
 }
 
 func NewKanbanService(
-	kanbanRepo repository.KanbanRepository,
-	projectRepo repository.ProjectRepository,
-	taskRepo repository.TaskRepository,
-	taskPayRepo repository.TaskBudgetRepository,
-) KanbanService {
+	kanbanRepo Repository.KanbanRepository,
+	projectRepo Repository.ProjectRepository,
+	taskRepo Repository.TaskRepository,
+	taskPayRepo Repository.TaskBudgetRepository,
+) Service.KanbanService {
 	return &kanbanService{
 		kanbanRepo:  kanbanRepo,
 		projectBase: &projectBase{projectRepo: projectRepo},
@@ -53,10 +41,10 @@ func (s *kanbanService) checkKanbanOwnership(userID, kanbanID uint64) error {
 	owned, err := s.kanbanRepo.CheckOwnership(userID, kanbanID)
 	if err != nil {
 		log.Printf("failed to check kanban ownership %d: %v", kanbanID, err)
-		return ErrInternal
+		return Service.ErrInternal
 	}
 	if !owned {
-		return ErrForbidden
+		return Service.ErrForbidden
 	}
 	return nil
 }
@@ -66,7 +54,7 @@ func (s *kanbanService) filterOwnedProjects(userID uint64, projectIDs []uint64) 
 	for _, pid := range projectIDs {
 		err := s.checkProjectAccessibility(pid, userID, permission.OpRead)
 		if err != nil {
-			if errors.Is(err, ErrForbidden) {
+			if errors.Is(err, Service.ErrForbidden) {
 				continue
 			}
 			return nil, err
@@ -114,13 +102,13 @@ func (s *kanbanService) Create(userID uint64, req *dto.CreateKanbanRequest) (*dt
 
 	if err := s.kanbanRepo.Create(kanban); err != nil {
 		log.Printf("failed to create kanban: %v", err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 
 	if len(ownedProjectIDs) > 0 {
 		if err := s.kanbanRepo.SetProjects(kanban.ID, ownedProjectIDs); err != nil {
 			log.Printf("failed to set kanban projects: %v", err)
-			return nil, ErrInternal
+			return nil, Service.ErrInternal
 		}
 	}
 
@@ -134,17 +122,17 @@ func (s *kanbanService) GetByID(userID, id uint64) (*dto.KanbanResponse, error) 
 
 	kanban, err := s.kanbanRepo.GetByID(id)
 	if err != nil {
-		if errors.Is(err, repositoryInte.ErrNotFound) {
-			return nil, ErrKanbanNotFound
+		if errors.Is(err, Repository.ErrNotFound) {
+			return nil, Service.ErrKanbanNotFound
 		}
 		log.Printf("failed to get kanban %d: %v", id, err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 
 	projectIDs, err := s.kanbanRepo.GetProjectIDs(id)
 	if err != nil {
 		log.Printf("failed to get kanban project IDs: %v", err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 	projectIDs, err = s.filterOwnedProjects(userID, projectIDs)
 	if err != nil {
@@ -158,7 +146,7 @@ func (s *kanbanService) ListByUserID(userID uint64) (*dto.KanbanListResponse, er
 	kanbans, err := s.kanbanRepo.ListByUserID(userID)
 	if err != nil {
 		log.Printf("failed to list kanbans for user %d: %v", userID, err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 
 	list := make([]dto.KanbanResponse, len(kanbans))
@@ -185,10 +173,10 @@ func (s *kanbanService) Update(userID uint64, id uint64, req *dto.UpdateKanbanRe
 
 	kanban, err := s.kanbanRepo.GetByID(id)
 	if err != nil {
-		if errors.Is(err, repositoryInte.ErrNotFound) {
-			return ErrKanbanNotFound
+		if errors.Is(err, Repository.ErrNotFound) {
+			return Service.ErrKanbanNotFound
 		}
-		return ErrInternal
+		return Service.ErrInternal
 	}
 
 	if req.Name != "" {
@@ -201,7 +189,7 @@ func (s *kanbanService) Update(userID uint64, id uint64, req *dto.UpdateKanbanRe
 
 	if err := s.kanbanRepo.Update(kanban); err != nil {
 		log.Printf("failed to update kanban %d: %v", id, err)
-		return ErrInternal
+		return Service.ErrInternal
 	}
 
 	if req.ProjectIDs != nil {
@@ -211,7 +199,7 @@ func (s *kanbanService) Update(userID uint64, id uint64, req *dto.UpdateKanbanRe
 		}
 		if err := s.kanbanRepo.SetProjects(id, ownedProjectIDs); err != nil {
 			log.Printf("failed to set kanban projects: %v", err)
-			return ErrInternal
+			return Service.ErrInternal
 		}
 	}
 
@@ -224,11 +212,11 @@ func (s *kanbanService) Delete(userID, id uint64) error {
 	}
 
 	if err := s.kanbanRepo.Delete(id); err != nil {
-		if errors.Is(err, repositoryInte.ErrNotFound) {
-			return ErrKanbanNotFound
+		if errors.Is(err, Repository.ErrNotFound) {
+			return Service.ErrKanbanNotFound
 		}
 		log.Printf("failed to delete kanban %d: %v", id, err)
-		return ErrInternal
+		return Service.ErrInternal
 	}
 	return nil
 }
@@ -241,7 +229,7 @@ func (s *kanbanService) GetKanbanTasks(userID, kanbanID uint64, status *uint8, p
 	projectIDs, err := s.kanbanRepo.GetProjectIDs(kanbanID)
 	if err != nil {
 		log.Printf("failed to get kanban project IDs: %v", err)
-		return nil, ErrInternal
+		return nil, Service.ErrInternal
 	}
 
 	ownedProjectIDs, err := s.filterOwnedProjects(userID, projectIDs)
@@ -259,7 +247,7 @@ func (s *kanbanService) GetKanbanTasks(userID, kanbanID uint64, status *uint8, p
 func (s *kanbanService) GetDefaultKanbanTasks(userID uint64, status *uint8, page, pageSize int) (*dto.KanbanTaskListResponse, error) {
 	kanban, err := s.kanbanRepo.GetDefaultKanban(userID)
 	if err != nil {
-		if errors.Is(err, repositoryInte.ErrNotFound) {
+		if errors.Is(err, Repository.ErrNotFound) {
 			kanbans, listErr := s.kanbanRepo.ListByUserID(userID)
 			if listErr != nil || len(kanbans) == 0 {
 				return &dto.KanbanTaskListResponse{Total: 0, List: []*dto.KanbanTaskResponse{}}, nil
@@ -267,7 +255,7 @@ func (s *kanbanService) GetDefaultKanbanTasks(userID uint64, status *uint8, page
 			kanban = &kanbans[0]
 		} else {
 			log.Printf("failed to get default kanban: %v", err)
-			return nil, ErrInternal
+			return nil, Service.ErrInternal
 		}
 	}
 
@@ -382,11 +370,11 @@ func (s *kanbanService) SetDefaultKanban(userID, kanbanID uint64) error {
 	}
 
 	if err := s.kanbanRepo.SetDefaultKanban(userID, kanbanID); err != nil {
-		if errors.Is(err, repositoryInte.ErrNotFound) {
-			return ErrKanbanNotFound
+		if errors.Is(err, Repository.ErrNotFound) {
+			return Service.ErrKanbanNotFound
 		}
 		log.Printf("failed to set default kanban: %v", err)
-		return ErrInternal
+		return Service.ErrInternal
 	}
 	return nil
 }

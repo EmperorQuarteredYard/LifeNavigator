@@ -1,8 +1,8 @@
 package controller
 
 import (
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
-	"LifeNavigator/internal/service"
 	"LifeNavigator/middleWare/jwt"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/errcode"
@@ -18,11 +18,11 @@ import (
 
 type UserController struct {
 	BaseController
-	userService   service.UserService
-	inviteService service.InviteUserService
+	userService   Service.UserService
+	inviteService Service.InviteUserService
 }
 
-func NewUserController(userService service.UserService, inviteService service.InviteUserService) *UserController {
+func NewUserController(userService Service.UserService, inviteService Service.InviteUserService) *UserController {
 	return &UserController{
 		userService:   userService,
 		inviteService: inviteService,
@@ -89,7 +89,7 @@ func (ctl *UserController) UploadAvatar(c *gin.Context) {
 		// 若更新失败，删除已上传的文件
 		os.Remove(savePath)
 		switch {
-		case errors.Is(err, service.ErrUserNotFound):
+		case errors.Is(err, Service.ErrUserNotFound):
 			ctl.Code(c, errcode.StatusUserNotFound)
 		default:
 			ctl.ServerError(c)
@@ -120,13 +120,13 @@ func (ctl *UserController) Register(c *gin.Context) {
 	accTok, refTok, err := ctl.inviteService.InviteUser(user, req.InviteCode)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrUserInfoIncomplete):
+		case errors.Is(err, Service.ErrUserInfoIncomplete):
 			ctl.Code(c, errcode.StatusInvalidParams)
-		case errors.Is(err, service.ErrUserNameExists):
+		case errors.Is(err, Service.ErrUserNameExists):
 			ctl.Code(c, errcode.StatusRegisterNameExist)
-		case errors.Is(err, service.ErrInviteCodeNotFound):
+		case errors.Is(err, Service.ErrInviteCodeNotFound):
 			ctl.Code(c, errcode.StatusInviteCodeNotFound)
-		case errors.Is(err, service.ErrInviteCodeUsed): // 需要处理仓储层返回的错误
+		case errors.Is(err, Service.ErrInviteCodeUsed): // 需要处理仓储层返回的错误
 			ctl.Code(c, errcode.StatusInviteCodeUsed)
 		default:
 			ctl.ServerError(c)
@@ -157,9 +157,9 @@ func (ctl *UserController) Login(c *gin.Context) {
 	user, err := ctl.userService.Login(req.Username, req.Password)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrUserNotFound):
+		case errors.Is(err, Service.ErrUserNotFound):
 			ctl.Code(c, errcode.StatusUserNotFound)
-		case errors.Is(err, service.ErrPasswordWrong):
+		case errors.Is(err, Service.ErrPasswordWrong):
 			ctl.Code(c, errcode.StatusLoginNameOrPasswordWrong)
 		default:
 			ctl.Code(c, errcode.StatusServerError)
@@ -198,7 +198,7 @@ func (ctl *UserController) GetUser(c *gin.Context) {
 	user, err := ctl.userService.GetByID(id, id)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrUserNotFound):
+		case errors.Is(err, Service.ErrUserNotFound):
 			ctl.Code(c, errcode.StatusUserNotFound)
 		default:
 			ctl.Code(c, errcode.StatusServerError)
@@ -226,7 +226,7 @@ func (ctl *UserController) Profile(c *gin.Context) {
 	user, err := ctl.userService.GetByID(authUser.UserID, authUser.UserID)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrUserNotFound):
+		case errors.Is(err, Service.ErrUserNotFound):
 			ctl.Code(c, errcode.StatusUserNotFound)
 		default:
 			ctl.Code(c, errcode.StatusServerError)
@@ -253,9 +253,9 @@ func (ctl *UserController) Refresh(c *gin.Context) {
 	accessToken, refreshToken, err := ctl.userService.RefreshToken(req.RefreshToken)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrInvalidToken):
+		case errors.Is(err, Service.ErrInvalidToken):
 			ctl.Code(c, errcode.StatusInvalidToken)
-		case errors.Is(err, service.ErrUserNotFound):
+		case errors.Is(err, Service.ErrUserNotFound):
 			ctl.Code(c, errcode.StatusUserNotFound)
 		default:
 			ctl.Code(c, errcode.StatusServerError)

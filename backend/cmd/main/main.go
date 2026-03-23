@@ -3,23 +3,19 @@ package main
 import (
 	"LifeNavigator/internal/controller"
 	"LifeNavigator/internal/database"
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/internal/repository"
 	"LifeNavigator/internal/router"
 	"LifeNavigator/internal/service"
-	"LifeNavigator/pkg/permission"
 	"LifeNavigator/pkg/roles"
-	"fmt"
 	"log"
 
 	"gorm.io/gorm"
 )
 
 func main() {
-	//ServeByRealDatabase()
-	p := permission.FromUint32(0)
-	p.SetRoleAll(permission.RoleOwner)
-	fmt.Println(p)
+	ServeByRealDatabase()
 }
 
 func ServeByRealDatabase() {
@@ -68,7 +64,7 @@ func ServeByRealDatabase() {
 	}
 }
 
-func initAdministrator(db *gorm.DB, userService service.UserService) {
+func initAdministrator(db *gorm.DB, userService Service.UserService) {
 	var count int64
 	db.Model(&models.User{}).Where("role = ?", roles.Administrator).Count(&count)
 	if count == 0 {

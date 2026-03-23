@@ -85,6 +85,7 @@ func SetupRouter(
 			authorized.GET("/projects/:id", projectCtrl.GetProject)
 			authorized.PUT("/projects/:id", projectCtrl.UpdateProject)
 			authorized.DELETE("/projects/:id", projectCtrl.DeleteProject)
+			authorized.GET("/projects/:id/tasks", taskCtrl.ListTasks) //获取项目下的任务
 
 			// 项目预算
 			authorized.POST("/projects/:id/budgets", budgetCTL.AddBudget)
@@ -93,7 +94,6 @@ func SetupRouter(
 
 			// 任务相关
 			authorized.POST("/tasks", taskCtrl.CreateTask)
-			authorized.GET("/tasks", taskCtrl.ListTasks) // 支持 project_id 查询
 			authorized.GET("/tasks/:id", taskCtrl.GetTask)
 			authorized.PUT("/tasks/:id", taskCtrl.UpdateTask)
 			authorized.DELETE("/tasks/:id", taskCtrl.DeleteTask)

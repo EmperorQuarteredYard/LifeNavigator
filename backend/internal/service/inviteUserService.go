@@ -1,25 +1,19 @@
 package service
 
 import (
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
 	"LifeNavigator/middleWare/jwt"
 	"LifeNavigator/pkg/roles"
 	"log"
 )
 
-type InviteUserService interface {
-	//InviteUser 邀请注册：需要知道谁在邀请（当前用户），以便在失败时回滚
-	InviteUser(user *models.User, inviteCodeToken string) (accessToken string, refreshToken string, err error)
-	//CreateInviteCode 创建邀请码：需要当前用户
-	CreateInviteCode(inviterID uint64, amount int, role string) (*models.InviteCode, error)
-}
-
 type inviteUserService struct {
-	userServ UserService
-	codeServ InviteCodeService
+	userServ Service.UserService
+	codeServ Service.InviteCodeService
 }
 
-func NewInviteUserService(userServ UserService, codeServ InviteCodeService) InviteUserService {
+func NewInviteUserService(userServ Service.UserService, codeServ Service.InviteCodeService) Service.InviteUserService {
 	return &inviteUserService{
 		userServ: userServ,
 		codeServ: codeServ,
@@ -45,7 +39,7 @@ func (s *inviteUserService) InviteUser(user *models.User, inviteCodeToken string
 		if delErr := s.userServ.HardDeleteByID(user.ID, user.ID); delErr != nil {
 			log.Printf("failed to rollback user creation: %v", delErr)
 		}
-		return "", "", ErrInternal
+		return "", "", Service.ErrInternal
 	}
 	return
 }
@@ -56,7 +50,7 @@ func (s *inviteUserService) CreateInviteCode(inviterID uint64, amount int, role 
 		return nil, err
 	}
 	if roles.GetPrivilegeValue(user.Role) <= roles.GetPrivilegeValue(role) {
-		return nil, ErrForbidden
+		return nil, Service.ErrForbidden
 	}
 	return s.codeServ.GenerateInviteCode(amount, inviterID, role)
 }

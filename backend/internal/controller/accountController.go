@@ -1,8 +1,8 @@
 package controller
 
 import (
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
-	"LifeNavigator/internal/service"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/errcode"
 	"strconv"
@@ -12,11 +12,11 @@ import (
 )
 
 type AccountController struct {
-	accountServ service.AccountService
+	accountServ Service.AccountService
 	*BaseController
 }
 
-func NewAccountController(accountServ service.AccountService) *AccountController {
+func NewAccountController(accountServ Service.AccountService) *AccountController {
 	return &AccountController{
 		accountServ:    accountServ,
 		BaseController: &BaseController{},

@@ -1,8 +1,8 @@
 package controller
 
 import (
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/internal/models"
-	"LifeNavigator/internal/service"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/errcode"
 	"strconv"
@@ -11,11 +11,11 @@ import (
 )
 
 type ProjectController struct {
-	projectServ service.ProjectService
+	projectServ Service.ProjectService
 	*BaseController
 }
 
-func NewProjectController(projectServ service.ProjectService) *ProjectController {
+func NewProjectController(projectServ Service.ProjectService) *ProjectController {
 	return &ProjectController{
 		projectServ:    projectServ,
 		BaseController: &BaseController{},

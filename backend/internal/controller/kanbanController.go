@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"LifeNavigator/internal/service"
+	"LifeNavigator/internal/interfaces/Service"
 	"LifeNavigator/pkg/dto"
 	"LifeNavigator/pkg/errcode"
 	"strconv"
@@ -10,11 +10,11 @@ import (
 )
 
 type KanbanController struct {
-	kanbanServ service.KanbanService
+	kanbanServ Service.KanbanService
 	*BaseController
 }
 
-func NewKanbanController(kanbanServ service.KanbanService) *KanbanController {
+func NewKanbanController(kanbanServ Service.KanbanService) *KanbanController {
 	return &KanbanController{
 		kanbanServ:     kanbanServ,
 		BaseController: &BaseController{},

@@ -1,4 +1,4 @@
-package repositoryInte
+package Repository
 
 // TxRepositories 聚合了事务中需要使用的所有 Repository 接口。
 // 用于在事务范围内传递一致的数据访问对象。
